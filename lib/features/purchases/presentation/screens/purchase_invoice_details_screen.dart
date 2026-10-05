@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/features/purchases/data/repositories/purchase_returns_repository_impl.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
+import '../../domain/repositories/purchase_returns_repository.dart';
 import '../../domain/repositories/purchases_repository.dart';
+import 'create_purchase_return_dialog.dart';
 
-/// شاشة تفاصيل فاتورة الشراء مع إمكانية الإلغاء الآمن
+/// شاشة تفاصيل فاتورة الشراء مع إمكانية الإلغاء الآمن وإرجاع الأصناف
 class PurchaseInvoiceDetailsScreen extends StatefulWidget {
   final int invoiceId;
   final PurchasesRepository purchasesRepository;
+  final PurchaseReturnsRepository returnsRepository;
 
   PurchaseInvoiceDetailsScreen({
     super.key,
     required this.invoiceId,
     PurchasesRepository? purchasesRepository,
-  }) : purchasesRepository = purchasesRepository ?? PurchasesRepositoryImpl();
+    PurchaseReturnsRepository? returnsRepository,
+  })  : purchasesRepository = purchasesRepository ?? PurchasesRepositoryImpl(),
+        returnsRepository = returnsRepository ?? PurchaseReturnsRepositoryImpl();
 
   @override
   State<PurchaseInvoiceDetailsScreen> createState() => _PurchaseInvoiceDetailsScreenState();
@@ -161,6 +167,31 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
     }
   }
 
+  Future<void> _createReturn() async {
+    if (_invoice == null || _invoice!.isCancelled) return;
+
+    final result = await CreatePurchaseReturnDialog.show(
+      context,
+      purchaseInvoiceId: _invoice!.id,
+      invoiceNumber: _invoice!.invoiceNumber,
+      supplierId: _invoice!.supplierId,
+      returnsRepository: widget.returnsRepository,
+    );
+
+    if (result != null) {
+      _loadInvoiceDetails();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'تم إنشاء مرتجع المشتريات بنجاح برقم (${result.returnNumber}) وخصم الكميات من المخزون'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -194,12 +225,24 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
       appBar: AppBar(
         title: Text('فاتورة شراء ${invoice.invoiceNumber}'),
         actions: [
-          if (!invoice.isCancelled)
+          if (!invoice.isCancelled) ...[
+            ElevatedButton.icon(
+              onPressed: _createReturn,
+              icon: const Icon(Icons.keyboard_return_outlined, size: 18),
+              label: const Text('إرجاع أصناف'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.cancel_outlined, color: Colors.red),
               tooltip: 'إلغاء الفاتورة',
               onPressed: _confirmCancelInvoice,
             ),
+          ],
         ],
       ),
       body: SingleChildScrollView(

@@ -47,6 +47,10 @@ class PurchaseInvoice extends Entity {
 
   /// هل الفاتورة مسددة بالكامل؟
   bool get isPaidInFull => remainingAmount <= 0;
+  bool get isPaid => isPaidInFull;
+
+  /// هل الفاتورة آجلة؟
+  bool get isCredit => paymentType == PurchasePaymentType.credit;
 
   /// هل الفاتورة ملغاة؟
   bool get isCancelled => status == PurchaseInvoiceStatus.cancelled;

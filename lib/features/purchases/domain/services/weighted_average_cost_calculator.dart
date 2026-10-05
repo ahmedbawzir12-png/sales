@@ -12,7 +12,7 @@ class WeightedAverageCostCalculator {
     required double oldQuantity,
     required double oldAverageCost,
     required double newQuantity,
-    required int newUnitCost,
+    required num newUnitCost,
   }) {
     // إذا كانت الكمية المشتراة غير صالحة أو صفر
     if (newQuantity <= 0) {
@@ -35,5 +35,20 @@ class WeightedAverageCostCalculator {
     final double averageCost = (totalOldCost + totalNewCost) / totalQuantity;
     // تقريب الناتج لمنزلتين عشريتين لأعلى دقة محاسبية
     return double.parse(averageCost.toStringAsFixed(2));
+  }
+
+  /// حساب متوسط التكلفة عند إضافة كمية جديدة (سواء شراء جديد أو استرجاع بتكلفة تاريخية)
+  static double calculateNewAverageCost({
+    required double currentStock,
+    required double currentAverageCost,
+    required double addedQuantity,
+    required num addedUnitCost,
+  }) {
+    return calculate(
+      oldQuantity: currentStock,
+      oldAverageCost: currentAverageCost,
+      newQuantity: addedQuantity,
+      newUnitCost: addedUnitCost,
+    );
   }
 }

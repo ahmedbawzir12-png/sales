@@ -34,12 +34,28 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
       final whereString = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
 
       final results = await db.rawQuery('''
-        SELECT * FROM ${DatabaseConstants.tableSuppliers}
+        SELECT 
+          s.*,
+          COALESCE((
+            SELECT SUM(CASE 
+              WHEN sl.transaction_type = 'purchase_credit' THEN sl.amount 
+              WHEN sl.transaction_type IN ('payment', 'purchase_return', 'cancellation') THEN -sl.amount 
+              WHEN sl.transaction_type = 'adjustment' THEN sl.amount 
+              ELSE 0 
+            END)
+            FROM ${DatabaseConstants.tableSupplierLedger} sl
+            WHERE sl.supplier_id = s.id
+          ), 0) AS calculated_debt
+        FROM ${DatabaseConstants.tableSuppliers} s
         $whereString
-        ORDER BY is_active DESC, name ASC
+        ORDER BY s.is_active DESC, s.name ASC
       ''', whereArgs);
 
-      return results.map((map) => SupplierModel.fromMap(map).toEntity()).toList();
+      return results.map((map) {
+        final debt = (map['calculated_debt'] as num?)?.toInt() ?? 0;
+        final base = SupplierModel.fromMap(map).toEntity();
+        return base.copyWith(currentBalance: debt);
+      }).toList();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل استرجاع قائمة الموردين', e);
@@ -50,18 +66,31 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
   Future<Supplier> getSupplierById(int id) async {
     try {
       final db = await _databaseService.database;
-      final results = await db.query(
-        DatabaseConstants.tableSuppliers,
-        where: 'id = ?',
-        whereArgs: [id],
-        limit: 1,
-      );
+      final results = await db.rawQuery('''
+        SELECT 
+          s.*,
+          COALESCE((
+            SELECT SUM(CASE 
+              WHEN sl.transaction_type = 'purchase_credit' THEN sl.amount 
+              WHEN sl.transaction_type IN ('payment', 'purchase_return', 'cancellation') THEN -sl.amount 
+              WHEN sl.transaction_type = 'adjustment' THEN sl.amount 
+              ELSE 0 
+            END)
+            FROM ${DatabaseConstants.tableSupplierLedger} sl
+            WHERE sl.supplier_id = s.id
+          ), 0) AS calculated_debt
+        FROM ${DatabaseConstants.tableSuppliers} s
+        WHERE s.id = ?
+        LIMIT 1
+      ''', [id]);
 
       if (results.isEmpty) {
         throw const NotFoundException('المورد المطلوب غير مسجل في النظام');
       }
 
-      return SupplierModel.fromMap(results.first).toEntity();
+      final row = results.first;
+      final debt = (row['calculated_debt'] as num?)?.toInt() ?? 0;
+      return SupplierModel.fromMap(row).toEntity().copyWith(currentBalance: debt);
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل استرجاع بيانات المورد', e);
@@ -198,14 +227,24 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
     try {
       final db = await _databaseService.database;
       final results = await db.rawQuery('''
-        SELECT SUM(current_balance) FROM ${DatabaseConstants.tableSuppliers}
-        WHERE is_active = 1 AND current_balance > 0
+        SELECT COALESCE(
+          SUM(CASE 
+            WHEN sl.transaction_type = 'purchase_credit' THEN sl.amount 
+            WHEN sl.transaction_type IN ('payment', 'purchase_return', 'cancellation') THEN -sl.amount 
+            WHEN sl.transaction_type = 'adjustment' THEN sl.amount 
+            ELSE 0 
+          END), 
+          0
+        ) AS total_debt
+        FROM ${DatabaseConstants.tableSupplierLedger} sl
+        JOIN ${DatabaseConstants.tableSuppliers} s ON sl.supplier_id = s.id
+        WHERE s.is_active = 1
       ''');
 
       if (results.isEmpty || results.first.values.first == null) {
         return 0;
       }
-      return (results.first.values.first as num).toInt();
+      return (results.first['total_debt'] as num).toInt();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل احتساب إجمالي ديون الموردين', e);

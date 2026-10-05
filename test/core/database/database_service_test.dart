@@ -23,15 +23,16 @@ void main() {
       final version = await db.getVersion();
       expect(version, equals(DatabaseConstants.databaseVersion));
 
-      // التحقق من جدول الهجرات (الهجرة 1 و 2 و 3 و 4 مطبقة)
+      // التحقق من جدول الهجرات (الهجرة 1 و 2 و 3 و 4 و 5 مطبقة)
       final migrations = await db.query(DatabaseConstants.tableMigrations);
-      expect(migrations.length, equals(4));
+      expect(migrations.length, equals(5));
       expect(migrations.first['version'], equals(1));
       expect(migrations[1]['version'], equals(2));
       expect(migrations[2]['version'], equals(3));
       expect(migrations[3]['version'], equals(4));
+      expect(migrations[4]['version'], equals(5));
 
-      // التحقق من وجود جداول العملاء والمبيعات
+      // التحقق من وجود جداول العملاء والمبيعات والديون
       final customers = await db.query(DatabaseConstants.tableCustomers);
       expect(customers.isNotEmpty, isTrue);
 
@@ -50,23 +51,33 @@ void main() {
       expect(DatabaseService.instance.isOpen, isFalse);
     });
 
-    test('آلية الهجرات تقبل ترقيات المخطط المستقبلية بأمان وتسجلها في جدول التتبع', () async {
-      final db = await DatabaseService.instance.initForTesting(inMemory: true);
+    test(
+      'آلية الهجرات تقبل ترقيات المخطط المستقبلية بأمان وتسجلها في جدول التتبع',
+      () async {
+        final db = await DatabaseService.instance.initForTesting(
+          inMemory: true,
+        );
 
-      // محاكاة ترقية لاحقة في معاملة موحدة
-      await db.transaction((txn) async {
-        await txn.execute('ALTER TABLE ${DatabaseConstants.tableStoreProfile} ADD COLUMN email TEXT;');
-        await txn.rawInsert('''
+        // محاكاة ترقية لاحقة في معاملة موحدة
+        await db.transaction((txn) async {
+          await txn.execute(
+            'ALTER TABLE ${DatabaseConstants.tableStoreProfile} ADD COLUMN email TEXT;',
+          );
+          await txn.rawInsert(
+            '''
           INSERT OR REPLACE INTO ${DatabaseConstants.tableMigrations} (version, description, applied_at)
           VALUES (5, 'إضافة حقل البريد الإلكتروني للمتجر', ?)
-        ''', [DateTime.now().toIso8601String()]);
-      });
+        ''',
+            [DateTime.now().toIso8601String()],
+          );
+        });
 
-      final migrations = await db.query(DatabaseConstants.tableMigrations);
-      expect(migrations.length, equals(5));
+        final migrations = await db.query(DatabaseConstants.tableMigrations);
+        expect(migrations.length, equals(5));
 
-      final records = await db.query(DatabaseConstants.tableStoreProfile);
-      expect(records.first.containsKey('email'), isTrue);
-    });
+        final records = await db.query(DatabaseConstants.tableStoreProfile);
+        expect(records.first.containsKey('email'), isTrue);
+      },
+    );
   });
 }

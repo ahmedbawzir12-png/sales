@@ -33,15 +33,22 @@ class CustomersRepositoryImpl implements CustomersRepository {
 
       final whereString = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
 
-      // استعلام تجميعي يدمج رصيد الديون المستحقة الفعلي من فواتير المبيعات الآجلة المكتملة
+      // استعلام تجميعي يدمج رصيد الديون المستحقة الفعلي من أستاذ العميل (الآجل، الدفعات، المرتجعات)
       final sql = '''
         SELECT 
           c.*,
-          COALESCE(SUM(CASE WHEN s.payment_type = 'credit' AND s.status = 'completed' THEN s.remaining_amount ELSE 0 END), 0) AS calculated_debt
+          COALESCE((
+            SELECT SUM(CASE 
+              WHEN cl.transaction_type = 'sale_credit' THEN cl.amount 
+              WHEN cl.transaction_type IN ('payment', 'sales_return', 'cancellation') THEN -cl.amount 
+              WHEN cl.transaction_type = 'adjustment' THEN cl.amount 
+              ELSE 0 
+            END)
+            FROM ${DatabaseConstants.tableCustomerLedger} cl
+            WHERE cl.customer_id = c.id
+          ), 0) AS calculated_debt
         FROM ${DatabaseConstants.tableCustomers} c
-        LEFT JOIN ${DatabaseConstants.tableSalesInvoices} s ON c.id = s.customer_id
         $whereString
-        GROUP BY c.id
         ORDER BY c.id ASC
       ''';
 
@@ -66,11 +73,18 @@ class CustomersRepositoryImpl implements CustomersRepository {
       final sql = '''
         SELECT 
           c.*,
-          COALESCE(SUM(CASE WHEN s.payment_type = 'credit' AND s.status = 'completed' THEN s.remaining_amount ELSE 0 END), 0) AS calculated_debt
+          COALESCE((
+            SELECT SUM(CASE 
+              WHEN cl.transaction_type = 'sale_credit' THEN cl.amount 
+              WHEN cl.transaction_type IN ('payment', 'sales_return', 'cancellation') THEN -cl.amount 
+              WHEN cl.transaction_type = 'adjustment' THEN cl.amount 
+              ELSE 0 
+            END)
+            FROM ${DatabaseConstants.tableCustomerLedger} cl
+            WHERE cl.customer_id = c.id
+          ), 0) AS calculated_debt
         FROM ${DatabaseConstants.tableCustomers} c
-        LEFT JOIN ${DatabaseConstants.tableSalesInvoices} s ON c.id = s.customer_id
         WHERE c.id = ?
-        GROUP BY c.id
         LIMIT 1
       ''';
 
@@ -206,9 +220,17 @@ class CustomersRepositoryImpl implements CustomersRepository {
     try {
       final db = await _dbService.database;
       final result = await db.rawQuery('''
-        SELECT COALESCE(SUM(remaining_amount), 0) AS total_debt
-        FROM ${DatabaseConstants.tableSalesInvoices}
-        WHERE customer_id = ? AND payment_type = 'credit' AND status = 'completed'
+        SELECT COALESCE(
+          SUM(CASE 
+            WHEN transaction_type = 'sale_credit' THEN amount 
+            WHEN transaction_type IN ('payment', 'sales_return', 'cancellation') THEN -amount 
+            WHEN transaction_type = 'adjustment' THEN amount 
+            ELSE 0 
+          END), 
+          0
+        ) AS total_debt
+        FROM ${DatabaseConstants.tableCustomerLedger}
+        WHERE customer_id = ?
       ''', [customerId]);
 
       return (result.first['total_debt'] as num?)?.toInt() ?? 0;

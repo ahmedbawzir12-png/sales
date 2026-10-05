@@ -1,6 +1,9 @@
 import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
+import '../../../../core/domain/services/financial_flow_integration.dart';
+import '../../../customers/data/repositories/customer_ledger_repository_impl.dart';
+import '../../../customers/domain/entities/customer_ledger_entry.dart';
 import '../../../products/data/repositories/stock_movements_repository_impl.dart';
 import '../../../products/domain/entities/stock_movement.dart';
 import '../../domain/entities/sales_invoice.dart';
@@ -16,15 +19,25 @@ import '../models/sales_invoice_model.dart';
 class SalesRepositoryImpl implements SalesRepository {
   final DatabaseService _dbService;
   final StockMovementsRepositoryImpl _stockMovementsRepo;
+  final CustomerLedgerRepositoryImpl _customerLedgerRepo;
+  final FinancialFlowIntegrationService _financialService;
   final SalesCalculationService _calculationService;
 
   SalesRepositoryImpl({
     DatabaseService? dbService,
     StockMovementsRepositoryImpl? stockMovementsRepo,
+    CustomerLedgerRepositoryImpl? customerLedgerRepo,
+    FinancialFlowIntegrationService? financialService,
     SalesCalculationService? calculationService,
   })  : _dbService = dbService ?? DatabaseService.instance,
-        _stockMovementsRepo =
-            stockMovementsRepo ?? StockMovementsRepositoryImpl(databaseService: dbService),
+        _stockMovementsRepo = stockMovementsRepo ??
+            StockMovementsRepositoryImpl(
+                databaseService: dbService ?? DatabaseService.instance),
+        _customerLedgerRepo = customerLedgerRepo ??
+            CustomerLedgerRepositoryImpl(
+                dbService: dbService ?? DatabaseService.instance),
+        _financialService =
+            financialService ?? FinancialFlowIntegrationService.instance,
         _calculationService = calculationService ?? const SalesCalculationService();
 
   @override
@@ -338,11 +351,48 @@ class SalesRepositoryImpl implements SalesRepository {
           );
         }
 
+        // هـ) تسجيل أثر البيع الآجل في أستاذ العميل (Customer Ledger) إن وجد مبلغ متبقي
+        if (invoice.paymentType == SalesPaymentType.credit &&
+            remaining > 0 &&
+            invoice.customerId != null) {
+          await _customerLedgerRepo.recordEntryWithExecutor(
+            txn,
+            CustomerLedgerEntry(
+              id: 0,
+              customerId: invoice.customerId!,
+              transactionType: CustomerLedgerTransactionType.saleCredit,
+              amount: remaining,
+              transactionDate: invoice.invoiceDate,
+              referenceType: 'sales_invoice',
+              referenceId: invoiceId,
+              notes: 'فاتورة مبيعات آجلة رقم ${invoice.invoiceNumber}',
+              createdAt: now,
+            ),
+          );
+        }
+
+        // و) تجهيز التدفق المالي للصندوق (Cash In Integration Point) للمبلغ المقبوض نقداً
+        final effectivePaid =
+            invoice.paymentType == SalesPaymentType.cash ? total : invoice.paidAmount;
+        if (effectivePaid > 0) {
+          _financialService.dispatchFlow(
+            FinancialFlowRecord(
+              type: FinancialFlowType.cashIn,
+              source: FinancialFlowSource.cashSale,
+              amount: effectivePaid,
+              referenceType: 'sales_invoice',
+              referenceId: invoiceId,
+              description: 'مبيعات ${invoice.paymentType.arabicLabel} (فاتورة رقم ${invoice.invoiceNumber})',
+              date: invoice.invoiceDate,
+            ),
+          );
+        }
+
         return invoice.copyWith(
           id: invoiceId,
           subtotal: subtotal,
           totalAmount: total,
-          paidAmount: invoice.paymentType == SalesPaymentType.cash ? total : invoice.paidAmount,
+          paidAmount: effectivePaid,
           remainingAmount: remaining,
           status: SalesInvoiceStatus.completed,
           items: savedItems,
@@ -377,6 +427,9 @@ class SalesRepositoryImpl implements SalesRepository {
         final invoiceData = invoiceRows.first;
         final currentStatus = invoiceData['status'] as String;
         final invoiceNumber = invoiceData['invoice_number'] as String;
+        final customerId = invoiceData['customer_id'] as int?;
+        final remainingAmount = (invoiceData['remaining_amount'] as num).toInt();
+        final paidAmount = (invoiceData['paid_amount'] as num).toInt();
 
         if (currentStatus == SalesInvoiceStatus.cancelled.name) {
           throw const ValidationException('هذه الفاتورة ملغاة مسبقاً');
@@ -405,13 +458,48 @@ class SalesRepositoryImpl implements SalesRepository {
           );
         }
 
-        // 3. تحديث حالة الفاتورة إلى ملغاة (مع الحفاظ على كامل السجل التاريخي)
-        final now = DateTime.now().toIso8601String();
+        final now = DateTime.now();
+
+        // 3. تسوية أستاذ العميل في حال وجود دين مسجل
+        if (remainingAmount > 0 && customerId != null) {
+          await _customerLedgerRepo.recordEntryWithExecutor(
+            txn,
+            CustomerLedgerEntry(
+              id: 0,
+              customerId: customerId,
+              transactionType: CustomerLedgerTransactionType.cancellation,
+              amount: remainingAmount,
+              transactionDate: now,
+              referenceType: 'sales_invoice',
+              referenceId: invoiceId,
+              notes: 'إلغاء أثر الدين لفاتورة المبيعات رقم $invoiceNumber',
+              createdAt: now,
+            ),
+          );
+        }
+
+        // 4. تجهيز استرداد نقدي إن كان العميل دفع مبلغاً نقدياً
+        if (paidAmount > 0) {
+          _financialService.dispatchFlow(
+            FinancialFlowRecord(
+              type: FinancialFlowType.cashOut,
+              source: FinancialFlowSource.salesReturnRefund,
+              amount: paidAmount,
+              referenceType: 'sales_invoice_cancellation',
+              referenceId: invoiceId,
+              description: 'استرداد نقدي إثر إلغاء فاتورة مبيعات رقم $invoiceNumber',
+              date: now,
+            ),
+          );
+        }
+
+        // 5. تحديث حالة الفاتورة وتصفير المتبقي
         await txn.update(
           DatabaseConstants.tableSalesInvoices,
           {
             'status': SalesInvoiceStatus.cancelled.name,
-            'updated_at': now,
+            'remaining_amount': 0,
+            'updated_at': now.toIso8601String(),
           },
           where: 'id = ?',
           whereArgs: [invoiceId],

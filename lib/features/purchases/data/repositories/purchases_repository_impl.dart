@@ -1,8 +1,11 @@
 import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/domain/services/financial_flow_integration.dart';
 import 'package:sales/features/products/data/repositories/stock_movements_repository_impl.dart';
 import 'package:sales/features/products/domain/entities/stock_movement.dart';
+import 'package:sales/features/suppliers/data/repositories/supplier_ledger_repository_impl.dart';
+import 'package:sales/features/suppliers/domain/entities/supplier_ledger_entry.dart';
 import '../../domain/entities/purchase_invoice.dart';
 import '../../domain/entities/purchase_invoice_item.dart';
 import '../../domain/entities/purchase_invoice_status.dart';
@@ -17,13 +20,23 @@ import '../models/purchase_invoice_model.dart';
 class PurchasesRepositoryImpl implements PurchasesRepository {
   final DatabaseService _databaseService;
   final StockMovementsRepositoryImpl _stockMovementsRepository;
+  final SupplierLedgerRepositoryImpl _supplierLedgerRepository;
+  final FinancialFlowIntegrationService _financialService;
 
   PurchasesRepositoryImpl({
     DatabaseService? databaseService,
     StockMovementsRepositoryImpl? stockMovementsRepository,
+    SupplierLedgerRepositoryImpl? supplierLedgerRepository,
+    FinancialFlowIntegrationService? financialService,
   })  : _databaseService = databaseService ?? DatabaseService.instance,
         _stockMovementsRepository = stockMovementsRepository ??
-            StockMovementsRepositoryImpl(databaseService: databaseService ?? DatabaseService.instance);
+            StockMovementsRepositoryImpl(
+                databaseService: databaseService ?? DatabaseService.instance),
+        _supplierLedgerRepository = supplierLedgerRepository ??
+            SupplierLedgerRepositoryImpl(
+                dbService: databaseService ?? DatabaseService.instance),
+        _financialService =
+            financialService ?? FinancialFlowIntegrationService.instance;
 
   @override
   Future<String> generateNextInvoiceNumber() async {
@@ -344,10 +357,25 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           ));
         }
 
-        // هـ) إذا كان هناك مبلغ متبقي (شراء آجل أو جزئي)، يتم تحديث رصيد دين المورد
+        // هـ) إذا كان هناك مبلغ متبقي (شراء آجل أو جزئي)، يتم تسجيل الحركة في أستاذ المورد وتحديث رصيد دين المورد
         if (calculatedRemaining > 0) {
           final int currentBalance = (supplier['current_balance'] as num?)?.toInt() ?? 0;
           final int updatedBalance = currentBalance + calculatedRemaining;
+
+          await _supplierLedgerRepository.recordEntryWithExecutor(
+            txn,
+            SupplierLedgerEntry(
+              id: 0,
+              supplierId: invoice.supplierId,
+              transactionType: SupplierLedgerTransactionType.purchaseCredit,
+              amount: calculatedRemaining,
+              transactionDate: invoice.invoiceDate,
+              referenceType: 'purchase_invoice',
+              referenceId: invoiceId,
+              notes: 'فاتورة مشتريات آجلة رقم $trimmedInvoiceNumber',
+              createdAt: DateTime.parse(now),
+            ),
+          );
 
           await txn.update(
             DatabaseConstants.tableSuppliers,
@@ -357,6 +385,21 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
             },
             where: 'id = ?',
             whereArgs: [invoice.supplierId],
+          );
+        }
+
+        // و) تجهيز التدفق المالي للصندوق (Cash Out Integration Point) للمبلغ المدفوع نقداً
+        if (invoice.paidAmount > 0) {
+          _financialService.dispatchFlow(
+            FinancialFlowRecord(
+              type: FinancialFlowType.cashOut,
+              source: FinancialFlowSource.supplierPayment,
+              amount: invoice.paidAmount,
+              referenceType: 'purchase_invoice',
+              referenceId: invoiceId,
+              description: 'سداد نقدي لفاتورة مشتريات رقم $trimmedInvoiceNumber للمورد ${supplier['name']}',
+              date: invoice.invoiceDate,
+            ),
           );
         }
 
@@ -412,6 +455,7 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
         final invoiceNumber = invoiceData['invoice_number'] as String;
         final supplierId = invoiceData['supplier_id'] as int;
         final remainingAmount = (invoiceData['remaining_amount'] as num).toInt();
+        final paidAmount = (invoiceData['paid_amount'] as num).toInt();
 
         // 2. جلب بنود الفاتورة
         final itemRows = await txn.query(
@@ -464,8 +508,23 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
 
         final now = DateTime.now().toIso8601String();
 
-        // 5. عكس أثر المتبقي على دين المورد
+        // 5. عكس أثر المتبقي على دين المورد وتسجيل حركة في أستاذ المورد
         if (remainingAmount > 0) {
+          await _supplierLedgerRepository.recordEntryWithExecutor(
+            txn,
+            SupplierLedgerEntry(
+              id: 0,
+              supplierId: supplierId,
+              transactionType: SupplierLedgerTransactionType.cancellation,
+              amount: remainingAmount,
+              transactionDate: DateTime.parse(now),
+              referenceType: 'purchase_invoice',
+              referenceId: invoiceId,
+              notes: 'إلغاء أثر الدين لفاتورة المشتريات رقم $invoiceNumber ($trimmedReason)',
+              createdAt: DateTime.parse(now),
+            ),
+          );
+
           final supplierRows = await txn.query(
             DatabaseConstants.tableSuppliers,
             columns: ['id', 'current_balance'],
@@ -490,11 +549,27 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           }
         }
 
-        // 6. تحديث حالة الفاتورة لـ cancelled (الحفاظ على الأرشيف والـ Audit Trail)
+        // 6. تجهيز استرداد نقدي إن كان تم سداد مبلغ للمورد (Cash In Integration Point)
+        if (paidAmount > 0) {
+          _financialService.dispatchFlow(
+            FinancialFlowRecord(
+              type: FinancialFlowType.cashIn,
+              source: FinancialFlowSource.purchaseReturnRefund,
+              amount: paidAmount,
+              referenceType: 'purchase_invoice_cancellation',
+              referenceId: invoiceId,
+              description: 'استرداد نقدي إثر إلغاء فاتورة مشتريات رقم $invoiceNumber',
+              date: DateTime.parse(now),
+            ),
+          );
+        }
+
+        // 7. تحديث حالة الفاتورة لـ cancelled وتصفير المتبقي
         await txn.update(
           DatabaseConstants.tablePurchaseInvoices,
           {
             'status': PurchaseInvoiceStatus.cancelled.name,
+            'remaining_amount': 0,
             'notes': invoiceData['notes'] != null
                 ? '${invoiceData['notes']} | تم الإلغاء: $trimmedReason'
                 : 'تم الإلغاء: $trimmedReason',

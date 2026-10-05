@@ -9,6 +9,7 @@ import 'migrations/migration_v1.dart';
 import 'migrations/migration_v2.dart';
 import 'migrations/migration_v3.dart';
 import 'migrations/migration_v4.dart';
+import 'migrations/migration_v5.dart';
 
 /// خدمة إدارة دورة حياة قاعدة البيانات المحلية SQLite التابعة لطبقة البيانات
 class DatabaseService {
@@ -25,6 +26,7 @@ class DatabaseService {
         MigrationV2(),
         MigrationV3(),
         MigrationV4(),
+        MigrationV5(),
       ];
 
   /// الحصول على الاتصال الفعال بقاعدة البيانات
@@ -124,6 +126,7 @@ class DatabaseService {
   /// تهيئة مخصصة للاختبارات (مثل in-memory أو مسار مؤقت)
   Future<Database> initForTesting({String? customPath, bool inMemory = true}) async {
     await close();
+    _initCompleter = null;
     final db = await _initDatabase(customPath: customPath, inMemory: inMemory);
     _database = db;
     return db;
@@ -134,6 +137,7 @@ class DatabaseService {
 
   /// إغلاق قاعدة البيانات بأمان
   Future<void> close() async {
+    _initCompleter = null;
     if (_database != null && _database!.isOpen) {
       await _database!.close();
       _database = null;

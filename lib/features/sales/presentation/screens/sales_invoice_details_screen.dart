@@ -2,20 +2,25 @@ import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../data/repositories/sales_returns_repository_impl.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_payment_type.dart';
 import '../../domain/repositories/sales_repository.dart';
+import '../../domain/repositories/sales_returns_repository.dart';
+import 'create_sales_return_dialog.dart';
 
-/// شاشة تفاصيل فاتورة المبيعات وإلغائها
+/// شاشة تفاصيل فاتورة المبيعات وإلغائها وإرجاع الأصناف
 class SalesInvoiceDetailsScreen extends StatefulWidget {
   final int invoiceId;
   final SalesRepository repository;
+  final SalesReturnsRepository returnsRepository;
 
-  const SalesInvoiceDetailsScreen({
+  SalesInvoiceDetailsScreen({
     super.key,
     required this.invoiceId,
     required this.repository,
-  });
+    SalesReturnsRepository? returnsRepository,
+  }) : returnsRepository = returnsRepository ?? SalesReturnsRepositoryImpl();
 
   @override
   State<SalesInvoiceDetailsScreen> createState() => _SalesInvoiceDetailsScreenState();
@@ -134,12 +139,49 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
     }
   }
 
+  Future<void> _createReturn() async {
+    if (_invoice == null || _invoice!.isCancelled) return;
+
+    final result = await CreateSalesReturnDialog.show(
+      context,
+      salesInvoiceId: _invoice!.id,
+      invoiceNumber: _invoice!.invoiceNumber,
+      returnsRepository: widget.returnsRepository,
+    );
+
+    if (result != null) {
+      await _loadInvoice();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'تم إنشاء مرتجع المبيعات بنجاح برقم (${result.returnNumber}) وإرجاع الكميات للمخزون'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_invoice?.invoiceNumber ?? 'تفاصيل فاتورة البيع'),
         actions: [
+          if (_invoice != null && !_invoice!.isCancelled) ...[
+            ElevatedButton.icon(
+              onPressed: _createReturn,
+              icon: const Icon(Icons.assignment_return_outlined, size: 18),
+              label: const Text('إرجاع أصناف'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.warning,
+                foregroundColor: Colors.black87,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'تحديث',

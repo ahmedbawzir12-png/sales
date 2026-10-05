@@ -45,6 +45,10 @@ class SalesInvoice extends Entity {
 
   /// هل الفاتورة مسددة بالكامل؟
   bool get isFullyPaid => remainingAmount == 0;
+  bool get isPaid => isFullyPaid;
+
+  /// هل الفاتورة آجلة؟
+  bool get isCredit => paymentType == SalesPaymentType.credit;
 
   /// هل الفاتورة ملغاة؟
   bool get isCancelled => status == SalesInvoiceStatus.cancelled;

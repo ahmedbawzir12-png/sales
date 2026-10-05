@@ -41,4 +41,14 @@ class AppFormatters {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$d $hour:$minute';
   }
+
+  /// دوال بديلة متوافقة مع التسميات الشائعة
+  static String formatCurrency(num amount, {String currency = AppConstants.defaultCurrency}) =>
+      AppFormatters.currency(amount, currency: currency);
+
+  static String formatDate(DateTime dateTime) => AppFormatters.date(dateTime);
 }
+
+/// الاسم المختصر للتوافق
+typedef Formatters = AppFormatters;
+
