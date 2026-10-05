@@ -266,7 +266,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  initialValue: _selectedCategoryId,
+                                  key: ValueKey('cat_dropdown_$_selectedCategoryId'),
+                                  initialValue: _categories.any((c) => c.id == _selectedCategoryId)
+                                      ? _selectedCategoryId
+                                      : null,
                                   decoration: const InputDecoration(
                                     labelText: 'التصنيف *',
                                     prefixIcon: Icon(Icons.category_outlined),
@@ -298,7 +301,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<int>(
-                                  initialValue: _selectedUnitId,
+                                  key: ValueKey('unit_dropdown_$_selectedUnitId'),
+                                  initialValue: _units.any((u) => u.id == _selectedUnitId)
+                                      ? _selectedUnitId
+                                      : null,
                                   decoration: const InputDecoration(
                                     labelText: 'وحدة القياس *',
                                     prefixIcon: Icon(Icons.straighten_outlined),

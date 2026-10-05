@@ -131,6 +131,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'products_fab',
         onPressed: () async {
           final result = await Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const AddEditProductScreen()),

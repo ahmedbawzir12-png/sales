@@ -142,12 +142,18 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
         notes: _notesController.text.trim(),
       );
 
-      // إعادة تحميل بيانات المنتج المحدثة
-      final updatedProduct = await _productsRepo.getProductById(_selectedProduct!.id);
+      // إعادة تحميل قائمة المنتجات والمنتج المحدث لضمان تطابق البيانات وتحديث القائمة
+      final refreshedList = await _productsRepo.getProducts(onlyActive: true);
+      final updatedProduct = refreshedList.firstWhere(
+        (p) => p.id == _selectedProduct!.id,
+        orElse: () => _selectedProduct!,
+      );
 
       if (mounted) {
         setState(() {
+          _products = refreshedList;
           _selectedProduct = updatedProduct;
+          _actualStockController.text = '${updatedProduct.currentStock}';
           _isSubmitting = false;
           if (movement != null) {
             _successMessage =
@@ -202,23 +208,29 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                             ),
                             const Divider(height: 20),
-                            DropdownButtonFormField<Product>(
-                              key: ValueKey(_selectedProduct?.id),
-                              initialValue: _selectedProduct,
+                            DropdownButtonFormField<int>(
+                              key: ValueKey('stock_inv_prod_${_selectedProduct?.id}'),
+                              initialValue: _products.any((p) => p.id == _selectedProduct?.id)
+                                  ? _selectedProduct?.id
+                                  : null,
                               decoration: const InputDecoration(
                                 labelText: 'المنتج',
                                 prefixIcon: Icon(Icons.search),
                               ),
                               isExpanded: true,
                               items: _products.map((p) {
-                                return DropdownMenuItem<Product>(
-                                  value: p,
+                                return DropdownMenuItem<int>(
+                                  value: p.id,
                                   child: Text(
                                     '${p.name} (الرصيد: ${p.currentStock} ${p.unitSymbol ?? ""})',
                                   ),
                                 );
                               }).toList(),
-                              onChanged: _onProductChanged,
+                              onChanged: (id) {
+                                if (id == null) return;
+                                final found = _products.firstWhere((p) => p.id == id);
+                                _onProductChanged(found);
+                              },
                             ),
                           ],
                         ),

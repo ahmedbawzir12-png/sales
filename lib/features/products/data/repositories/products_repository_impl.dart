@@ -177,6 +177,7 @@ class ProductsRepositoryImpl implements ProductsRepository {
           id: productId,
           name: trimmedName,
           currentStock: initialStock,
+          averageCost: product.purchasePrice.toDouble(),
           createdAt: DateTime.parse(now),
           updatedAt: DateTime.parse(now),
         );

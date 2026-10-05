@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
-import '../../features/products/presentation/screens/categories_screen.dart';
 import '../../features/products/presentation/screens/products_list_screen.dart';
 import '../../features/products/presentation/screens/stock_inventory_screen.dart';
-import '../../features/products/presentation/screens/units_screen.dart';
+import '../../features/purchases/presentation/screens/purchases_list_screen.dart';
 import '../../features/settings/presentation/screens/foundation_screen.dart';
+import '../../features/suppliers/presentation/screens/suppliers_list_screen.dart';
 
-/// الشاشة الهيكلية الرئيسية للتنقل بين أقسام النظام المتاحة في المرحلة الثانية
+/// الشاشة الهيكلية الرئيسية للتنقل بين أقسام النظام المتاحة
 class MainNavigationShell extends StatefulWidget {
   final int initialIndex;
 
@@ -19,12 +19,12 @@ class MainNavigationShell extends StatefulWidget {
 class _MainNavigationShellState extends State<MainNavigationShell> {
   late int _currentIndex;
 
-  final List<Widget> _screens = const [
-    ProductsListScreen(),
-    StockInventoryScreen(),
-    CategoriesScreen(),
-    UnitsScreen(),
-    FoundationScreen(),
+  late final List<Widget> _screens = [
+    const ProductsListScreen(),
+    PurchasesListScreen(),
+    SuppliersListScreen(),
+    const StockInventoryScreen(),
+    const FoundationScreen(),
   ];
 
   @override
@@ -51,23 +51,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             label: 'المنتجات',
           ),
           NavigationDestination(
+            icon: Icon(Icons.shopping_cart_outlined),
+            selectedIcon: Icon(Icons.shopping_cart, color: AppColors.primary),
+            label: 'المشتريات',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_alt_outlined),
+            selectedIcon: Icon(Icons.people_alt, color: AppColors.primary),
+            label: 'الموردون',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.tune_outlined),
             selectedIcon: Icon(Icons.tune, color: AppColors.primary),
             label: 'الجرد والتسوية',
           ),
           NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category, color: AppColors.primary),
-            label: 'التصنيفات',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.straighten_outlined),
-            selectedIcon: Icon(Icons.straighten, color: AppColors.primary),
-            label: 'الوحدات',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.health_and_safety_outlined),
-            selectedIcon: Icon(Icons.health_and_safety, color: AppColors.primary),
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings, color: AppColors.primary),
             label: 'النظام',
           ),
         ],

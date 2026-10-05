@@ -194,6 +194,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'categories_fab',
         onPressed: () => _showAddEditDialog(),
         icon: const Icon(Icons.add),
         label: const Text('إضافة تصنيف'),

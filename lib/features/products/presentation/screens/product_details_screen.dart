@@ -314,8 +314,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildPricingCard(Product product) {
-    final margin = product.salePrice - product.purchasePrice;
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -323,7 +321,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'بيانات التسعير',
+              'بيانات التسعير وتكلفة المخزون',
               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
             ),
             const Divider(height: 20),
@@ -331,21 +329,21 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildStatColumn(
-                  'سعر الشراء',
+                  'آخر سعر شراء',
                   AppFormatters.currency(product.purchasePrice, currency: AppConstants.defaultCurrency),
                   AppColors.textPrimary,
+                ),
+                Container(height: 35, width: 1, color: AppColors.divider),
+                _buildStatColumn(
+                  'متوسط التكلفة المرجح',
+                  AppFormatters.currency(product.averageCost, currency: AppConstants.defaultCurrency),
+                  Colors.blue.shade800,
                 ),
                 Container(height: 35, width: 1, color: AppColors.divider),
                 _buildStatColumn(
                   'سعر البيع',
                   AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency),
                   AppColors.primary,
-                ),
-                Container(height: 35, width: 1, color: AppColors.divider),
-                _buildStatColumn(
-                  'هامش الربح المتوقع',
-                  AppFormatters.currency(margin, currency: AppConstants.defaultCurrency),
-                  margin >= 0 ? AppColors.success : AppColors.error,
                 ),
               ],
             ),

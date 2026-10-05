@@ -181,6 +181,7 @@ class _UnitsScreenState extends State<UnitsScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'units_fab',
         onPressed: () => _showAddEditDialog(),
         icon: const Icon(Icons.add),
         label: const Text('إضافة وحدة'),

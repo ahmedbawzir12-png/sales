@@ -9,6 +9,7 @@ class ProductModel extends DataModel<Product> {
   final int unitId;
   final int purchasePrice;
   final int salePrice;
+  final double averageCost;
   final double currentStock;
   final double minimumStock;
   final String? description;
@@ -27,6 +28,7 @@ class ProductModel extends DataModel<Product> {
     required this.unitId,
     required this.purchasePrice,
     required this.salePrice,
+    double? averageCost,
     this.currentStock = 0.0,
     this.minimumStock = 0.0,
     this.description,
@@ -35,16 +37,18 @@ class ProductModel extends DataModel<Product> {
     required this.updatedAt,
     this.categoryName,
     this.unitSymbol,
-  });
+  }) : averageCost = averageCost ?? purchasePrice * 1.0;
 
   factory ProductModel.fromMap(Map<String, dynamic> map) {
+    final purchasePrice = map['purchase_price'] as int? ?? 0;
     return ProductModel(
       id: map['id'] as int? ?? 0,
       name: map['name'] as String? ?? '',
       categoryId: map['category_id'] as int? ?? 0,
       unitId: map['unit_id'] as int? ?? 0,
-      purchasePrice: map['purchase_price'] as int? ?? 0,
+      purchasePrice: purchasePrice,
       salePrice: map['sale_price'] as int? ?? 0,
+      averageCost: (map['average_cost'] as num?)?.toDouble() ?? purchasePrice.toDouble(),
       currentStock: (map['current_stock'] as num?)?.toDouble() ?? 0.0,
       minimumStock: (map['minimum_stock'] as num?)?.toDouble() ?? 0.0,
       description: map['description'] as String?,
@@ -64,6 +68,7 @@ class ProductModel extends DataModel<Product> {
       unitId: entity.unitId,
       purchasePrice: entity.purchasePrice,
       salePrice: entity.salePrice,
+      averageCost: entity.averageCost,
       currentStock: entity.currentStock,
       minimumStock: entity.minimumStock,
       description: entity.description,
@@ -83,6 +88,7 @@ class ProductModel extends DataModel<Product> {
       'unit_id': unitId,
       'purchase_price': purchasePrice,
       'sale_price': salePrice,
+      'average_cost': averageCost,
       'current_stock': currentStock,
       'minimum_stock': minimumStock,
       'description': description,
@@ -105,6 +111,7 @@ class ProductModel extends DataModel<Product> {
       unitId: unitId,
       purchasePrice: purchasePrice,
       salePrice: salePrice,
+      averageCost: averageCost,
       currentStock: currentStock,
       minimumStock: minimumStock,
       description: description,

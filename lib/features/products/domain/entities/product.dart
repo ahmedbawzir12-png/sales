@@ -8,6 +8,7 @@ class Product extends Entity {
   final int unitId;
   final int purchasePrice;
   final int salePrice;
+  final double averageCost;
   final double currentStock;
   final double minimumStock;
   final String? description;
@@ -26,6 +27,7 @@ class Product extends Entity {
     required this.unitId,
     required this.purchasePrice,
     required this.salePrice,
+    double? averageCost,
     this.currentStock = 0.0,
     this.minimumStock = 0.0,
     this.description,
@@ -34,7 +36,7 @@ class Product extends Entity {
     required this.updatedAt,
     this.categoryName,
     this.unitSymbol,
-  });
+  }) : averageCost = averageCost ?? purchasePrice * 1.0;
 
   /// هل المخزون وصل أو نزل عن حد إعادة الطلب الأدنى؟
   bool get isLowStock => currentStock <= minimumStock;
@@ -46,6 +48,7 @@ class Product extends Entity {
     int? unitId,
     int? purchasePrice,
     int? salePrice,
+    double? averageCost,
     double? currentStock,
     double? minimumStock,
     String? description,
@@ -62,6 +65,7 @@ class Product extends Entity {
       unitId: unitId ?? this.unitId,
       purchasePrice: purchasePrice ?? this.purchasePrice,
       salePrice: salePrice ?? this.salePrice,
+      averageCost: averageCost ?? this.averageCost,
       currentStock: currentStock ?? this.currentStock,
       minimumStock: minimumStock ?? this.minimumStock,
       description: description ?? this.description,
@@ -78,28 +82,10 @@ class Product extends Entity {
       identical(this, other) ||
       other is Product &&
           runtimeType == other.runtimeType &&
-          id == other.id &&
-          name == other.name &&
-          categoryId == other.categoryId &&
-          unitId == other.unitId &&
-          purchasePrice == other.purchasePrice &&
-          salePrice == other.salePrice &&
-          currentStock == other.currentStock &&
-          minimumStock == other.minimumStock &&
-          isActive == other.isActive;
+          (id != 0 && other.id != 0 ? id == other.id : id == other.id && name == other.name);
 
   @override
-  int get hashCode => Object.hash(
-        id,
-        name,
-        categoryId,
-        unitId,
-        purchasePrice,
-        salePrice,
-        currentStock,
-        minimumStock,
-        isActive,
-      );
+  int get hashCode => id != 0 ? id.hashCode : Object.hash(id, name);
 
   @override
   String toString() =>

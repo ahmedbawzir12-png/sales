@@ -1,6 +1,7 @@
 import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sqflite/sqflite.dart' hide DatabaseException;
 import '../../domain/entities/stock_movement.dart';
 import '../../domain/repositories/stock_movements_repository.dart';
 import '../models/stock_movement_model.dart';
@@ -57,6 +58,36 @@ class StockMovementsRepositoryImpl implements StockMovementsRepository {
     String? notes,
     String? reference,
   }) async {
+    try {
+      final db = await _databaseService.database;
+      return await db.transaction<StockMovement>((txn) async {
+        return await recordMovementWithExecutor(
+          txn,
+          productId: productId,
+          type: type,
+          quantity: quantity,
+          reason: reason,
+          notes: notes,
+          reference: reference,
+        );
+      });
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل تسجيل حركة المخزون وتحديث الرصيد', e);
+    }
+  }
+
+  /// تسجيل حركة المخزون باستخدام منفذ معاملات محدد (DatabaseExecutor)
+  /// يتيح هذا التضمين السلس داخل معاملات أكبر مثل فواتير الشراء دون تكرار
+  Future<StockMovement> recordMovementWithExecutor(
+    DatabaseExecutor executor, {
+    required int productId,
+    required StockMovementType type,
+    required double quantity,
+    required String reason,
+    String? notes,
+    String? reference,
+  }) async {
     if (quantity <= 0) {
       throw const ValidationException('كمية الحركة يجب أن تكون أكبر من الصفر');
     }
@@ -66,91 +97,81 @@ class StockMovementsRepositoryImpl implements StockMovementsRepository {
       throw const ValidationException('سبب حركة المخزون مطلوب ولا يمكن تركه فارغاً');
     }
 
-    try {
-      final db = await _databaseService.database;
+    // 1. جلب رصيد المنتج الحالي مع قفل السجل
+    final productRows = await executor.query(
+      DatabaseConstants.tableProducts,
+      columns: ['id', 'name', 'current_stock'],
+      where: 'id = ?',
+      whereArgs: [productId],
+      limit: 1,
+    );
 
-      // تنفيذ العملية بشكل Transaction آمن وذري (Atomic)
-      return await db.transaction<StockMovement>((txn) async {
-        // 1. جلب رصيد المنتج الحالي مع قفل السجل
-        final productRows = await txn.query(
-          DatabaseConstants.tableProducts,
-          columns: ['id', 'name', 'current_stock'],
-          where: 'id = ?',
-          whereArgs: [productId],
-          limit: 1,
-        );
-
-        if (productRows.isEmpty) {
-          throw const NotFoundException('المنتج المحدد غير موجود في النظام');
-        }
-
-        final stockBefore = (productRows.first['current_stock'] as num).toDouble();
-        final productName = productRows.first['name'] as String;
-
-        // 2. حساب الرصيد الجديد بناءً على نوع الحركة
-        final double stockAfter;
-        if (type.isAddition) {
-          stockAfter = stockBefore + quantity;
-        } else {
-          stockAfter = stockBefore - quantity;
-        }
-
-        // 3. التحقق الصارم من منع الرصيد السالب
-        if (stockAfter < 0) {
-          throw ValidationException(
-            'لا يمكن إتمام العملية: الرصيد الحالي للمنتج "$productName" هو ($stockBefore) والمطلوب خصمه ($quantity)، مما يؤدي لرصيد سالب.',
-          );
-        }
-
-        final now = DateTime.now().toIso8601String();
-
-        // 4. تحديث رصيد المنتج
-        await txn.update(
-          DatabaseConstants.tableProducts,
-          {
-            'current_stock': stockAfter,
-            'updated_at': now,
-          },
-          where: 'id = ?',
-          whereArgs: [productId],
-        );
-
-        // 5. تسجيل الحركة في جدول Stock Movement
-        final movementModel = StockMovementModel(
-          id: 0,
-          productId: productId,
-          movementType: type.name,
-          quantity: quantity,
-          stockBefore: stockBefore,
-          stockAfter: stockAfter,
-          reason: trimmedReason,
-          notes: notes?.trim(),
-          reference: reference?.trim(),
-          createdAt: now,
-        );
-
-        final movementId = await txn.insert(
-          DatabaseConstants.tableStockMovements,
-          movementModel.toMap(),
-        );
-
-        return StockMovement(
-          id: movementId,
-          productId: productId,
-          movementType: type,
-          quantity: quantity,
-          stockBefore: stockBefore,
-          stockAfter: stockAfter,
-          reason: trimmedReason,
-          notes: notes?.trim(),
-          reference: reference?.trim(),
-          createdAt: DateTime.parse(now),
-        );
-      });
-    } catch (e) {
-      if (e is AppException) rethrow;
-      throw DatabaseException('فشل تسجيل حركة المخزون وتحديث الرصيد', e);
+    if (productRows.isEmpty) {
+      throw const NotFoundException('المنتج المحدد غير موجود في النظام');
     }
+
+    final stockBefore = (productRows.first['current_stock'] as num).toDouble();
+    final productName = productRows.first['name'] as String;
+
+    // 2. حساب الرصيد الجديد بناءً على نوع الحركة
+    final double stockAfter;
+    if (type.isAddition) {
+      stockAfter = stockBefore + quantity;
+    } else {
+      stockAfter = stockBefore - quantity;
+    }
+
+    // 3. التحقق الصارم من منع الرصيد السالب
+    if (stockAfter < 0) {
+      throw ValidationException(
+        'لا يمكن إتمام العملية: الرصيد الحالي للمنتج "$productName" هو ($stockBefore) والمطلوب خصمه ($quantity)، مما يؤدي لرصيد سالب.',
+      );
+    }
+
+    final now = DateTime.now().toIso8601String();
+
+    // 4. تحديث رصيد المنتج
+    await executor.update(
+      DatabaseConstants.tableProducts,
+      {
+        'current_stock': stockAfter,
+        'updated_at': now,
+      },
+      where: 'id = ?',
+      whereArgs: [productId],
+    );
+
+    // 5. تسجيل الحركة في جدول Stock Movement
+    final movementModel = StockMovementModel(
+      id: 0,
+      productId: productId,
+      movementType: type.name,
+      quantity: quantity,
+      stockBefore: stockBefore,
+      stockAfter: stockAfter,
+      reason: trimmedReason,
+      notes: notes?.trim(),
+      reference: reference?.trim(),
+      createdAt: now,
+    );
+
+    final movementId = await executor.insert(
+      DatabaseConstants.tableStockMovements,
+      movementModel.toMap(),
+    );
+
+    return StockMovement(
+      id: movementId,
+      productId: productId,
+      movementType: type,
+      quantity: quantity,
+      stockBefore: stockBefore,
+      stockAfter: stockAfter,
+      reason: trimmedReason,
+      notes: notes?.trim(),
+      reference: reference?.trim(),
+      createdAt: DateTime.parse(now),
+    );
   }
 
   @override

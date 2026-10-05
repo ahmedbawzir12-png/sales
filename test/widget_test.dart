@@ -13,15 +13,16 @@ class FakeStoreSettingsRepository implements StoreSettingsRepository {
   final StoreProfile profile;
 
   FakeStoreSettingsRepository({StoreProfile? profile})
-      : profile = profile ??
-            StoreProfile(
-              id: 1,
-              name: 'معرض المفروشات العصري',
-              phone: '0501234567',
-              address: 'صنعاء',
-              currency: 'ر.ي',
-              updatedAt: DateTime(2026, 1, 1),
-            );
+    : profile =
+          profile ??
+          StoreProfile(
+            id: 1,
+            name: 'معرض المفروشات العصري',
+            phone: '739473030',
+            address: 'صنعاء',
+            currency: 'ر.ي',
+            updatedAt: DateTime(2026, 1, 1),
+          );
 
   @override
   Future<StoreProfile> getStoreProfile() async => profile;
@@ -40,7 +41,9 @@ void main() {
     await DatabaseService.instance.close();
   });
 
-  testWidgets('FurnitureStoreApp يفتح ويعرض واجهة التأسيس بنجاح', (WidgetTester tester) async {
+  testWidgets('FurnitureStoreApp يفتح ويعرض واجهة التأسيس بنجاح', (
+    WidgetTester tester,
+  ) async {
     final fakeRepo = FakeStoreSettingsRepository();
 
     await tester.pumpWidget(
@@ -60,27 +63,26 @@ void main() {
     expect(find.text('العملة الافتراضية:'), findsOneWidget);
   });
 
-  testWidgets('MainNavigationShell يعرض أقسام المرحلة الثانية (المنتجات، الجرد، التصنيفات، الوحدات)', (WidgetTester tester) async {
-    await DatabaseService.instance.initForTesting(inMemory: true);
+  testWidgets(
+    'MainNavigationShell يعرض أقسام النظام (المنتجات، المشتريات، الموردون، الجرد، النظام)',
+    (WidgetTester tester) async {
+      await DatabaseService.instance.initForTesting(inMemory: true);
 
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: MainNavigationShell(),
-      ),
-    );
+      await tester.pumpWidget(const MaterialApp(home: MainNavigationShell()));
 
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
 
-    // التحقق من وجهات شريط التنقل
-    expect(find.text('المنتجات'), findsWidgets);
-    expect(find.text('الجرد والتسوية'), findsWidgets);
-    expect(find.text('التصنيفات'), findsWidgets);
-    expect(find.text('الوحدات'), findsWidgets);
-    expect(find.text('النظام'), findsWidgets);
+      // التحقق من وجهات شريط التنقل
+      expect(find.text('المنتجات'), findsWidgets);
+      expect(find.text('المشتريات'), findsWidgets);
+      expect(find.text('الموردون'), findsWidgets);
+      expect(find.text('الجرد والتسوية'), findsWidgets);
+      expect(find.text('النظام'), findsWidgets);
 
-    // التحقق من عنوان شاشة المنتجات
-    expect(find.text('دليل المنتجات والمخزون'), findsOneWidget);
-    expect(find.text('إجمالي الأصناف'), findsOneWidget);
-  });
+      // التحقق من عنوان شاشة المنتجات
+      expect(find.text('دليل المنتجات والمخزون'), findsOneWidget);
+      expect(find.text('إجمالي الأصناف'), findsOneWidget);
+    },
+  );
 }
