@@ -75,7 +75,9 @@ void main() {
 
       // التحقق من وجهات شريط التنقل
       expect(find.text('المنتجات'), findsWidgets);
+      expect(find.text('المبيعات'), findsWidgets);
       expect(find.text('المشتريات'), findsWidgets);
+      expect(find.text('العملاء'), findsWidgets);
       expect(find.text('الموردون'), findsWidgets);
       expect(find.text('الجرد والتسوية'), findsWidgets);
       expect(find.text('النظام'), findsWidgets);

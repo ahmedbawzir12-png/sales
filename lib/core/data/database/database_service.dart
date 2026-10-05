@@ -8,6 +8,7 @@ import 'migrations/database_migration.dart';
 import 'migrations/migration_v1.dart';
 import 'migrations/migration_v2.dart';
 import 'migrations/migration_v3.dart';
+import 'migrations/migration_v4.dart';
 
 /// خدمة إدارة دورة حياة قاعدة البيانات المحلية SQLite التابعة لطبقة البيانات
 class DatabaseService {
@@ -23,6 +24,7 @@ class DatabaseService {
         MigrationV1(),
         MigrationV2(),
         MigrationV3(),
+        MigrationV4(),
       ];
 
   /// الحصول على الاتصال الفعال بقاعدة البيانات

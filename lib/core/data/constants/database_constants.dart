@@ -5,8 +5,8 @@ class DatabaseConstants {
   /// اسم ملف قاعدة البيانات
   static const String databaseName = 'furniture_sales.db';
 
-  /// الإصدار الحالي لقاعدة البيانات (المرحلة الثالثة: الموردون والمشتريات)
-  static const int databaseVersion = 3;
+  /// الإصدار الحالي لقاعدة البيانات (المرحلة الرابعة: العملاء والمبيعات)
+  static const int databaseVersion = 4;
 
   /// أوامر التهيئة (Pragmas)
   static const String pragmaForeignKeysOn = 'PRAGMA foreign_keys = ON;';
@@ -21,4 +21,7 @@ class DatabaseConstants {
   static const String tableSuppliers = 'suppliers';
   static const String tablePurchaseInvoices = 'purchase_invoices';
   static const String tablePurchaseInvoiceItems = 'purchase_invoice_items';
+  static const String tableCustomers = 'customers';
+  static const String tableSalesInvoices = 'sales_invoices';
+  static const String tableSalesInvoiceItems = 'sales_invoice_items';
 }

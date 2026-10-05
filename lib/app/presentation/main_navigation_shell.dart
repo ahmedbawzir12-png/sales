@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import '../../features/customers/presentation/screens/customers_list_screen.dart';
 import '../../features/products/presentation/screens/products_list_screen.dart';
 import '../../features/products/presentation/screens/stock_inventory_screen.dart';
 import '../../features/purchases/presentation/screens/purchases_list_screen.dart';
+import '../../features/sales/presentation/screens/sales_list_screen.dart';
 import '../../features/settings/presentation/screens/foundation_screen.dart';
 import '../../features/suppliers/presentation/screens/suppliers_list_screen.dart';
 
@@ -21,7 +23,9 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
 
   late final List<Widget> _screens = [
     const ProductsListScreen(),
+    const SalesListScreen(),
     PurchasesListScreen(),
+    const CustomersListScreen(),
     SuppliersListScreen(),
     const StockInventoryScreen(),
     const FoundationScreen(),
@@ -51,13 +55,23 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             label: 'المنتجات',
           ),
           NavigationDestination(
+            icon: Icon(Icons.point_of_sale_outlined),
+            selectedIcon: Icon(Icons.point_of_sale, color: AppColors.primary),
+            label: 'المبيعات',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.shopping_cart_outlined),
             selectedIcon: Icon(Icons.shopping_cart, color: AppColors.primary),
             label: 'المشتريات',
           ),
           NavigationDestination(
-            icon: Icon(Icons.people_alt_outlined),
-            selectedIcon: Icon(Icons.people_alt, color: AppColors.primary),
+            icon: Icon(Icons.people_outlined),
+            selectedIcon: Icon(Icons.people, color: AppColors.primary),
+            label: 'العملاء',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.business_outlined),
+            selectedIcon: Icon(Icons.business, color: AppColors.primary),
             label: 'الموردون',
           ),
           NavigationDestination(
