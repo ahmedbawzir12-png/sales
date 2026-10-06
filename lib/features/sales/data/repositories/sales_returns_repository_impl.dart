@@ -3,6 +3,7 @@ import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
 import '../../../../core/domain/services/financial_flow_integration.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../customers/data/repositories/customer_ledger_repository_impl.dart';
 import '../../../customers/domain/entities/customer_ledger_entry.dart';
 import '../../../products/data/repositories/stock_movements_repository_impl.dart';
@@ -432,7 +433,7 @@ class SalesReturnsRepositoryImpl implements SalesReturnsRepository {
           );
         }
 
-        return salesReturn.copyWith(
+        final saved = salesReturn.copyWith(
           id: returnId,
           returnNumber: returnNumber,
           total: totalReturnAmount,
@@ -442,6 +443,14 @@ class SalesReturnsRepositoryImpl implements SalesReturnsRepository {
           items: savedItems,
           createdAt: now,
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifySalesChanged();
+        if (debtReduction > 0) {
+          AppDataNotifier.instance.notifyCustomersChanged();
+        }
+
+        return saved;
       });
     } catch (e) {
       if (e is AppException) rethrow;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/constants/app_constants.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import '../../data/repositories/products_repository_impl.dart';
@@ -43,14 +44,33 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     super.initState();
     _productsRepo = widget.productsRepository ?? ProductsRepositoryImpl();
     _movementsRepo = widget.movementsRepository ?? StockMovementsRepositoryImpl();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadProductDetails();
   }
 
-  Future<void> _loadProductDetails() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  @override
+  void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
+    super.dispose();
+  }
+
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.inventory || event.type == AppDataChangeType.all) {
+      if (mounted) {
+        _loadProductDetails(isSilent: true);
+      }
+    }
+  }
+
+  Future<void> _loadProductDetails({bool isSilent = false}) async {
+    if (!isSilent || _product == null) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final p = await _productsRepo.getProductById(widget.productId);

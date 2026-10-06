@@ -206,7 +206,7 @@ class _PosScreenState extends State<PosScreen> {
     });
   }
 
-  int get _subtotal => _cart.fold(0, (sum, item) => sum + item.calculatedTotal);
+  int get _subtotal => _cart.fold(0, (sum, item) => sum + (item.quantity * item.unitPrice).round());
 
   int get _discount => int.tryParse(_discountController.text.trim()) ?? 0;
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../data/repositories/sales_repository_impl.dart';
@@ -37,20 +38,39 @@ class _SalesListScreenState extends State<SalesListScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? SalesRepositoryImpl();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadInvoices();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadInvoices() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.sales ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 1)) {
+      if (mounted) {
+        _loadInvoices(isSilent: true);
+      }
+    }
+  }
+
+  int _searchSequence = 0;
+
+  Future<void> _loadInvoices({bool isSilent = false}) async {
+    final currentSeq = ++_searchSequence;
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final list = await _repository.getInvoices(
@@ -60,7 +80,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
       );
       final metrics = await _repository.getSalesSummaryMetrics();
 
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _invoices = list;
           _metrics = metrics;
@@ -69,7 +89,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
       }
     } catch (e, s) {
       final failure = ErrorHandler.handle(e, s);
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _errorMessage = failure.userFriendlyMessage;
           _isLoading = false;
@@ -167,14 +187,19 @@ class _SalesListScreenState extends State<SalesListScreen> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchController.clear();
-                              _loadInvoices();
+                              setState(() {});
+                              _loadInvoices(isSilent: true);
                             },
                           )
                         : null,
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  onSubmitted: (_) => _loadInvoices(),
+                  onChanged: (_) {
+                    setState(() {});
+                    _loadInvoices(isSilent: true);
+                  },
+                  onSubmitted: (_) => _loadInvoices(isSilent: true),
                 ),
                 const SizedBox(height: 8),
                 SingleChildScrollView(

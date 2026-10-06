@@ -1,6 +1,7 @@
 import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/stock_movement.dart';
 import '../../domain/repositories/products_repository.dart';
@@ -173,7 +174,7 @@ class ProductsRepositoryImpl implements ProductsRepository {
           );
         }
 
-        return product.copyWith(
+        final created = product.copyWith(
           id: productId,
           name: trimmedName,
           currentStock: initialStock,
@@ -181,6 +182,10 @@ class ProductsRepositoryImpl implements ProductsRepository {
           createdAt: DateTime.parse(now),
           updatedAt: DateTime.parse(now),
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+
+        return created;
       });
     } catch (e) {
       if (e is AppException) rethrow;
@@ -235,6 +240,8 @@ class ProductsRepositoryImpl implements ProductsRepository {
       if (rowsAffected == 0) {
         throw const NotFoundException('المنتج المطلوب تعديله غير موجود في النظام');
       }
+
+      AppDataNotifier.instance.notifyInventoryChanged();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل تعديل بيانات المنتج', e);
@@ -260,6 +267,8 @@ class ProductsRepositoryImpl implements ProductsRepository {
       if (rowsAffected == 0) {
         throw const NotFoundException('المنتج غير موجود لتغيير حالته');
       }
+
+      AppDataNotifier.instance.notifyInventoryChanged();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل تغيير حالة تفعيل المنتج', e);

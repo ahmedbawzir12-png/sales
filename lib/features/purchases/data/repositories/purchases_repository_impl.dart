@@ -2,6 +2,7 @@ import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
 import 'package:sales/core/domain/services/financial_flow_integration.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/features/products/data/repositories/stock_movements_repository_impl.dart';
 import 'package:sales/features/products/domain/entities/stock_movement.dart';
 import 'package:sales/features/suppliers/data/repositories/supplier_ledger_repository_impl.dart';
@@ -403,7 +404,7 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           );
         }
 
-        return invoice.copyWith(
+        final saved = invoice.copyWith(
           id: invoiceId,
           invoiceNumber: trimmedInvoiceNumber,
           subtotal: calculatedSubtotal,
@@ -416,6 +417,14 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           supplierName: supplier['name'] as String?,
           supplierPhone: supplier['phone'] as String?,
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifyPurchasesChanged();
+        if (calculatedRemaining > 0) {
+          AppDataNotifier.instance.notifySuppliersChanged();
+        }
+
+        return saved;
       });
     } catch (e) {
       if (e is AppException) rethrow;
@@ -578,6 +587,10 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           where: 'id = ?',
           whereArgs: [invoiceId],
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifyPurchasesChanged();
+        AppDataNotifier.instance.notifySuppliersChanged();
       });
     } catch (e) {
       if (e is AppException) rethrow;

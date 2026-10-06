@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import 'package:sales/features/purchases/domain/repositories/purchases_repository.dart';
@@ -35,20 +36,39 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
   @override
   void initState() {
     super.initState();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadSuppliers();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSuppliers() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.suppliers ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 4)) {
+      if (mounted) {
+        _loadSuppliers(isSilent: true);
+      }
+    }
+  }
+
+  int _searchSequence = 0;
+
+  Future<void> _loadSuppliers({bool isSilent = false}) async {
+    final currentSeq = ++_searchSequence;
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final suppliers = await widget.repository.getSuppliers(
@@ -57,7 +77,7 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
       );
       final totalDebt = await widget.repository.getTotalSuppliersDebt();
 
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _suppliers = suppliers;
           _totalDebt = totalDebt;
@@ -65,7 +85,7 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _errorMessage = 'فشل تحميل قائمة الموردين';
           _isLoading = false;
@@ -161,14 +181,19 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 _searchController.clear();
-                                _loadSuppliers();
+                                setState(() {});
+                                _loadSuppliers(isSilent: true);
                               },
                             )
                           : null,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
-                    onChanged: (_) => _loadSuppliers(),
+                    onChanged: (_) {
+                      setState(() {});
+                      _loadSuppliers(isSilent: true);
+                    },
+                    onSubmitted: (_) => _loadSuppliers(isSilent: true),
                   ),
                 ),
                 const SizedBox(width: 8),

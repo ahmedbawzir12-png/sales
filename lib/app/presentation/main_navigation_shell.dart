@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import '../../features/customers/presentation/screens/customers_list_screen.dart';
 import '../../features/products/presentation/screens/products_list_screen.dart';
@@ -46,7 +47,10 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+        onDestinationSelected: (idx) {
+          setState(() => _currentIndex = idx);
+          AppDataNotifier.instance.notifyTabSelected(idx);
+        },
         indicatorColor: AppColors.primaryContainer,
         destinations: const [
           NavigationDestination(

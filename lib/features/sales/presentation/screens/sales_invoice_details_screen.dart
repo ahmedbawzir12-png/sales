@@ -4,6 +4,7 @@ import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../data/repositories/sales_returns_repository_impl.dart';
 import '../../domain/entities/sales_invoice.dart';
+import '../../domain/entities/sales_invoice_item.dart';
 import '../../domain/entities/sales_payment_type.dart';
 import '../../domain/repositories/sales_repository.dart';
 import '../../domain/repositories/sales_returns_repository.dart';
@@ -161,6 +162,64 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
         );
       }
     }
+  }
+
+  int _calculateEffectiveItemDiscount(SalesInvoiceItem item, int index) {
+    if (_invoice == null) return item.discount;
+
+    // إذا لم يكن هناك خصم في الفاتورة إطلاقاً
+    if (_invoice!.discount <= 0) {
+      return item.discount;
+    }
+
+    final totalItemsDiscount = _invoice!.items.fold<int>(0, (sum, i) => sum + i.discount);
+
+    // إذا كانت البنود تحتوي بالفعل على خصومات صريحة مسجلة تطابق أو تزيد عن خصم الفاتورة
+    if (totalItemsDiscount >= _invoice!.discount && item.discount > 0) {
+      return item.discount;
+    }
+
+    // الخصم العام المراد توزيعه على بنود الفاتورة
+    final remainingDiscount = _invoice!.discount - totalItemsDiscount;
+    if (remainingDiscount <= 0) {
+      return item.discount;
+    }
+
+    // نوزع الخصم العام المتبقي على البنود بنسبة قيمة كل صنف
+    final totalRaw = _invoice!.items.fold<double>(
+      0.0,
+      (sum, i) => sum + (i.quantity * i.unitPrice),
+    );
+    if (totalRaw <= 0) {
+      return item.discount;
+    }
+
+    // إذا كان هناك بند واحد فقط، يحصل على كامل الخصم
+    if (_invoice!.items.length == 1) {
+      return item.discount + remainingDiscount;
+    }
+
+    // إذا كان البند الأخير، نمنحه المتبقي بالضبط لتفادي أي فروقات تقريب
+    if (index == _invoice!.items.length - 1) {
+      int previouslyAllocated = 0;
+      for (int i = 0; i < _invoice!.items.length - 1; i++) {
+        final it = _invoice!.items[i];
+        final itRaw = it.quantity * it.unitPrice;
+        previouslyAllocated += ((itRaw / totalRaw) * remainingDiscount).round();
+      }
+      final lastShare = remainingDiscount - previouslyAllocated;
+      return item.discount + (lastShare > 0 ? lastShare : 0);
+    }
+
+    final itemRaw = item.quantity * item.unitPrice;
+    final share = ((itemRaw / totalRaw) * remainingDiscount).round();
+    return item.discount + share;
+  }
+
+  int _calculateEffectiveItemTotal(SalesInvoiceItem item, int effectiveDiscount) {
+    final rawTotal = (item.quantity * item.unitPrice).round();
+    final net = rawTotal - effectiveDiscount;
+    return net > 0 ? net : 0;
   }
 
   @override
@@ -322,6 +381,8 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
                                       rows: _invoice!.items.asMap().entries.map((entry) {
                                         final idx = entry.key + 1;
                                         final item = entry.value;
+                                        final effectiveDiscount = _calculateEffectiveItemDiscount(item, entry.key);
+                                        final effectiveTotal = _calculateEffectiveItemTotal(item, effectiveDiscount);
 
                                         return DataRow(
                                           cells: [
@@ -329,9 +390,19 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
                                             DataCell(Text(item.productName ?? 'منتج #${item.productId}')),
                                             DataCell(Text('${item.quantity} ${item.unitSymbol ?? ""}')),
                                             DataCell(Text(AppFormatters.currency(item.unitPrice))),
-                                            DataCell(Text(AppFormatters.currency(item.discount))),
                                             DataCell(Text(
-                                              AppFormatters.currency(item.total),
+                                              AppFormatters.currency(effectiveDiscount),
+                                              style: TextStyle(
+                                                color: effectiveDiscount > 0
+                                                    ? AppColors.warning
+                                                    : AppColors.textPrimary,
+                                                fontWeight: effectiveDiscount > 0
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                            )),
+                                            DataCell(Text(
+                                              AppFormatters.currency(effectiveTotal),
                                               style: const TextStyle(fontWeight: FontWeight.bold),
                                             )),
                                           ],

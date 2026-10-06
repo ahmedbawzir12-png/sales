@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../data/repositories/stock_movements_repository_impl.dart';
@@ -50,29 +51,52 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
     _reasonController = TextEditingController(text: 'تسوية جرد دوري للمخزون');
     _notesController = TextEditingController();
 
+    AppDataNotifier.instance.addListener(_handleDataNotification);
     _loadProducts();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_handleDataNotification);
     _actualStockController.dispose();
     _reasonController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadProducts() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _handleDataNotification() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.inventory ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 5)) {
+      if (mounted && !_isSubmitting) {
+        _loadProducts(isSilent: true);
+      }
+    }
+  }
+
+  Future<void> _loadProducts({bool isSilent = false}) async {
+    if (!isSilent || _products.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final list = await _productsRepo.getProducts(onlyActive: true);
       if (mounted) {
         setState(() {
           _products = list;
-          if (widget.initialProductId != null) {
+          if (_selectedProduct != null && list.any((p) => p.id == _selectedProduct!.id)) {
+            final refreshedProduct = list.firstWhere((p) => p.id == _selectedProduct!.id);
+            final wasMatchingOldStock = _actualStockController.text.trim() == '${_selectedProduct!.currentStock}';
+            _selectedProduct = refreshedProduct;
+            if (wasMatchingOldStock || _actualStockController.text.trim().isEmpty) {
+              _actualStockController.text = '${refreshedProduct.currentStock}';
+            }
+          } else if (widget.initialProductId != null) {
             _selectedProduct = list.firstWhere(
               (p) => p.id == widget.initialProductId,
               orElse: () => list.isNotEmpty ? list.first : throw Exception(),
@@ -81,6 +105,9 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
           } else if (list.isNotEmpty) {
             _selectedProduct = list.first;
             _actualStockController.text = '${_selectedProduct?.currentStock ?? 0}';
+          } else {
+            _selectedProduct = null;
+            _actualStockController.clear();
           }
           _isLoading = false;
         });

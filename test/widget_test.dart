@@ -66,12 +66,16 @@ void main() {
   testWidgets(
     'MainNavigationShell يعرض أقسام النظام (المنتجات، المشتريات، الموردون، الجرد، النظام)',
     (WidgetTester tester) async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
+      await tester.runAsync(() async {
+        await DatabaseService.instance.initForTesting(inMemory: true);
+      });
 
       await tester.pumpWidget(const MaterialApp(home: MainNavigationShell()));
 
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200));
+      await tester.runAsync(() async {
+        await Future.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pump(const Duration(seconds: 11));
 
       // التحقق من وجهات شريط التنقل
       expect(find.text('المنتجات'), findsWidgets);

@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart' hide DatabaseException;
 import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customers_repository.dart';
 import '../models/customer_model.dart';
@@ -133,11 +134,15 @@ class CustomersRepositoryImpl implements CustomersRepository {
         ),
       );
 
-      return await db.insert(
+      final newId = await db.insert(
         DatabaseConstants.tableCustomers,
         model.toMap(),
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
+
+      AppDataNotifier.instance.notifyCustomersChanged();
+
+      return newId;
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل حفظ العميل في قاعدة البيانات', e);
@@ -184,6 +189,8 @@ class CustomersRepositoryImpl implements CustomersRepository {
       if (count == 0) {
         throw NotFoundException('العميل المراد تعديله برقم (${customer.id}) غير موجود');
       }
+
+      AppDataNotifier.instance.notifyCustomersChanged();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل تعديل بيانات العميل رقم (${customer.id})', e);
@@ -209,6 +216,8 @@ class CustomersRepositoryImpl implements CustomersRepository {
       if (count == 0) {
         throw NotFoundException('العميل برقم ($id) غير موجود لتعديل حالته');
       }
+
+      AppDataNotifier.instance.notifyCustomersChanged();
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل تحديث حالة نشاط العميل رقم ($id)', e);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import '../../data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
@@ -33,20 +34,39 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
   @override
   void initState() {
     super.initState();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadInvoices();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadInvoices() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.purchases ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 2)) {
+      if (mounted) {
+        _loadInvoices(isSilent: true);
+      }
+    }
+  }
+
+  int _searchSequence = 0;
+
+  Future<void> _loadInvoices({bool isSilent = false}) async {
+    final currentSeq = ++_searchSequence;
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final invoices = await widget.repository.getInvoices(
@@ -55,14 +75,14 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
         status: _selectedStatus,
       );
 
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _invoices = invoices;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _errorMessage = 'فشل تحميل قائمة فواتير الشراء';
           _isLoading = false;
@@ -177,14 +197,19 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
                             icon: const Icon(Icons.clear),
                             onPressed: () {
                               _searchController.clear();
-                              _loadInvoices();
+                              setState(() {});
+                              _loadInvoices(isSilent: true);
                             },
                           )
                         : null,
                     border: const OutlineInputBorder(),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  onChanged: (_) => _loadInvoices(),
+                  onChanged: (_) {
+                    setState(() {});
+                    _loadInvoices(isSilent: true);
+                  },
+                  onSubmitted: (_) => _loadInvoices(isSilent: true),
                 ),
                 const SizedBox(height: 8),
                 SingleChildScrollView(

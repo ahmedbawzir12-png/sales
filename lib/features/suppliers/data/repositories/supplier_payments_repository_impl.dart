@@ -3,6 +3,7 @@ import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
 import '../../../../core/domain/services/financial_flow_integration.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../domain/entities/supplier_ledger_entry.dart';
 import '../../domain/entities/supplier_payment.dart';
 import '../../domain/repositories/supplier_payments_repository.dart';
@@ -214,12 +215,16 @@ class SupplierPaymentsRepositoryImpl implements SupplierPaymentsRepository {
           ),
         );
 
-        return payment.copyWith(
+        final saved = payment.copyWith(
           id: paymentId,
           paymentNumber: paymentNumber,
           supplierName: supplierName,
           createdAt: now,
         );
+
+        AppDataNotifier.instance.notifySuppliersChanged();
+
+        return saved;
       });
     } catch (e) {
       if (e is AppException) rethrow;

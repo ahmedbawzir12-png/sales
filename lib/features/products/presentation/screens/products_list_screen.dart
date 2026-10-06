@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/constants/app_constants.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import '../../data/repositories/categories_repository_impl.dart';
@@ -49,13 +50,27 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     super.initState();
     _productsRepo = widget.productsRepository ?? ProductsRepositoryImpl();
     _categoriesRepo = widget.categoriesRepository ?? CategoriesRepositoryImpl();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadInitialData();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.inventory ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 0)) {
+      if (mounted) {
+        _loadProducts(isSilent: true);
+      }
+    }
   }
 
   Future<void> _loadInitialData() async {
@@ -69,11 +84,16 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     _loadProducts();
   }
 
-  Future<void> _loadProducts() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  int _searchSequence = 0;
+
+  Future<void> _loadProducts({bool isSilent = false}) async {
+    final currentSeq = ++_searchSequence;
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final products = await _productsRepo.getProducts(
@@ -85,7 +105,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
 
       final lowCount = await _productsRepo.getLowStockCount();
 
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _products = products;
           _lowStockCount = lowCount;
@@ -94,7 +114,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
       }
     } catch (e, s) {
       final failure = ErrorHandler.handle(e, s);
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _errorMessage = failure.userFriendlyMessage;
           _isLoading = false;
@@ -304,21 +324,26 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                             icon: const Icon(Icons.clear, size: 18),
                             onPressed: () {
                               _searchController.clear();
-                              _loadProducts();
+                              setState(() {});
+                              _loadProducts(isSilent: true);
                             },
                           )
                         : null,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
-                  onSubmitted: (_) => _loadProducts(),
+                  onChanged: (_) {
+                    setState(() {});
+                    _loadProducts(isSilent: true);
+                  },
+                  onSubmitted: (_) => _loadProducts(isSilent: true),
                 ),
               ),
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 tooltip: 'تطبيق البحث',
-                icon: const Icon(Icons.arrow_forward),
-                onPressed: _loadProducts,
+                icon: const Icon(Icons.search),
+                onPressed: () => _loadProducts(isSilent: true),
               ),
             ],
           ),

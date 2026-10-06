@@ -1,6 +1,7 @@
 import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sqflite/sqflite.dart' hide DatabaseException;
 import '../../domain/entities/stock_movement.dart';
 import '../../domain/repositories/stock_movements_repository.dart';
@@ -257,7 +258,7 @@ class StockMovementsRepositoryImpl implements StockMovementsRepository {
           movementModel.toMap(),
         );
 
-        return StockMovement(
+        final movement = StockMovement(
           id: movementId,
           productId: productId,
           movementType: type,
@@ -269,6 +270,10 @@ class StockMovementsRepositoryImpl implements StockMovementsRepository {
           reference: movementModel.reference,
           createdAt: DateTime.parse(now),
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+
+        return movement;
       });
     } catch (e) {
       if (e is AppException) rethrow;

@@ -3,6 +3,7 @@ import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
 import '../../../../core/domain/services/financial_flow_integration.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../domain/entities/customer_ledger_entry.dart';
 import '../../domain/entities/customer_payment.dart';
 import '../../domain/repositories/customer_payments_repository.dart';
@@ -202,12 +203,16 @@ class CustomerPaymentsRepositoryImpl implements CustomerPaymentsRepository {
           ),
         );
 
-        return payment.copyWith(
+        final saved = payment.copyWith(
           id: paymentId,
           paymentNumber: paymentNumber,
           customerName: customerName,
           createdAt: now,
         );
+
+        AppDataNotifier.instance.notifyCustomersChanged();
+
+        return saved;
       });
     } catch (e) {
       if (e is AppException) rethrow;

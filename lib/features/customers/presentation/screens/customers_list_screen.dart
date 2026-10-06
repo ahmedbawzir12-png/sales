@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../data/repositories/customers_repository_impl.dart';
@@ -30,34 +31,53 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? CustomersRepositoryImpl();
+    AppDataNotifier.instance.addListener(_onAppDataChanged);
     _loadCustomers();
   }
 
   @override
   void dispose() {
+    AppDataNotifier.instance.removeListener(_onAppDataChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCustomers() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  void _onAppDataChanged() {
+    final event = AppDataNotifier.instance.lastEvent;
+    if (event == null) return;
+    if (event.type == AppDataChangeType.customers ||
+        event.type == AppDataChangeType.all ||
+        (event.type == AppDataChangeType.tabSelection && event.payload == 3)) {
+      if (mounted) {
+        _loadCustomers(isSilent: true);
+      }
+    }
+  }
+
+  int _searchSequence = 0;
+
+  Future<void> _loadCustomers({bool isSilent = false}) async {
+    final currentSeq = ++_searchSequence;
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final list = await _repository.getCustomers(
         onlyActive: _onlyActive,
         searchQuery: _searchController.text.trim(),
       );
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _customers = list;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && currentSeq == _searchSequence) {
         setState(() {
           _errorMessage = 'حدث خطأ أثناء تحميل بيانات العملاء';
           _isLoading = false;
@@ -144,14 +164,19 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 _searchController.clear();
-                                _loadCustomers();
+                                setState(() {});
+                                _loadCustomers(isSilent: true);
                               },
                             )
                           : null,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    onSubmitted: (_) => _loadCustomers(),
+                    onChanged: (_) {
+                      setState(() {});
+                      _loadCustomers(isSilent: true);
+                    },
+                    onSubmitted: (_) => _loadCustomers(isSilent: true),
                   ),
                 ),
                 const SizedBox(width: 8),

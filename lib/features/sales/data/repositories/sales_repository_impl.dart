@@ -2,6 +2,7 @@ import '../../../../core/data/constants/database_constants.dart';
 import '../../../../core/data/database/database_service.dart';
 import '../../../../core/domain/errors/exceptions.dart';
 import '../../../../core/domain/services/financial_flow_integration.dart';
+import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../customers/data/repositories/customer_ledger_repository_impl.dart';
 import '../../../customers/domain/entities/customer_ledger_entry.dart';
 import '../../../products/data/repositories/stock_movements_repository_impl.dart';
@@ -388,7 +389,7 @@ class SalesRepositoryImpl implements SalesRepository {
           );
         }
 
-        return invoice.copyWith(
+        final saved = invoice.copyWith(
           id: invoiceId,
           subtotal: subtotal,
           totalAmount: total,
@@ -400,6 +401,14 @@ class SalesRepositoryImpl implements SalesRepository {
           createdAt: now,
           updatedAt: now,
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifySalesChanged();
+        if (invoice.paymentType == SalesPaymentType.credit || invoice.remainingAmount > 0) {
+          AppDataNotifier.instance.notifyCustomersChanged();
+        }
+
+        return saved;
       });
     } catch (e) {
       if (e is AppException) rethrow;
@@ -504,6 +513,10 @@ class SalesRepositoryImpl implements SalesRepository {
           where: 'id = ?',
           whereArgs: [invoiceId],
         );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifySalesChanged();
+        AppDataNotifier.instance.notifyCustomersChanged();
       });
     } catch (e) {
       if (e is AppException) rethrow;
