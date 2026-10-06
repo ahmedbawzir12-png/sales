@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/features/products/data/repositories/categories_repository_impl.dart';
 import 'package:sales/features/products/data/repositories/products_repository_impl.dart';
+import 'package:sales/features/products/data/repositories/units_repository_impl.dart';
 import 'package:sales/features/products/domain/entities/product.dart';
+import 'package:sales/features/products/domain/repositories/categories_repository.dart';
 import 'package:sales/features/products/domain/repositories/products_repository.dart';
+import 'package:sales/features/products/domain/repositories/units_repository.dart';
+import 'package:sales/features/products/presentation/screens/quick_add_product_dialog.dart';
 import 'package:sales/features/purchases/domain/entities/purchase_invoice.dart';
 import 'package:sales/features/purchases/domain/entities/purchase_invoice_item.dart';
 import 'package:sales/features/purchases/domain/entities/purchase_payment_type.dart';
@@ -13,9 +18,26 @@ import 'package:sales/features/suppliers/domain/entities/supplier.dart';
 import 'package:sales/features/suppliers/domain/repositories/suppliers_repository.dart';
 import 'package:sales/features/suppliers/presentation/screens/add_edit_supplier_dialog.dart';
 
+/// خيارات البحث والإكمال التلقائي للمنتجات
+sealed class _ProductSearchOption {
+  const _ProductSearchOption();
+}
+
+class _ExistingProductOption extends _ProductSearchOption {
+  final Product product;
+  const _ExistingProductOption(this.product);
+}
+
+class _AddNewProductOption extends _ProductSearchOption {
+  final String query;
+  const _AddNewProductOption(this.query);
+}
+
 /// سطر مسودة صنف في واجهة فاتورة الشراء
 class _InvoiceItemDraft {
   Product? product;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final TextEditingController quantityController;
   final TextEditingController unitCostController;
 
@@ -23,14 +45,33 @@ class _InvoiceItemDraft {
     this.product,
     double initialQuantity = 1.0,
     int? initialCost,
-  })  : quantityController = TextEditingController(text: initialQuantity.toString()),
-        unitCostController = TextEditingController(text: (initialCost ?? product?.purchasePrice ?? 0).toString());
+  })  : searchController = TextEditingController(text: product?.name ?? ''),
+        searchFocusNode = FocusNode(),
+        quantityController = TextEditingController(text: initialQuantity.toString()),
+        unitCostController =
+            TextEditingController(text: (initialCost ?? product?.purchasePrice ?? 0).toString());
 
   double get quantity => double.tryParse(quantityController.text.trim()) ?? 0.0;
   int get unitCost => int.tryParse(unitCostController.text.trim()) ?? 0;
   int get total => (quantity * unitCost).round();
 
+  void setProduct(Product? newProduct) {
+    product = newProduct;
+    searchController.text = newProduct?.name ?? '';
+    if (newProduct != null) {
+      unitCostController.text = newProduct.purchasePrice.toString();
+    }
+  }
+
+  void clearProduct() {
+    product = null;
+    searchController.clear();
+    unitCostController.text = '0';
+  }
+
   void dispose() {
+    searchController.dispose();
+    searchFocusNode.dispose();
     quantityController.dispose();
     unitCostController.dispose();
   }
@@ -41,14 +82,20 @@ class NewPurchaseInvoiceScreen extends StatefulWidget {
   final PurchasesRepository purchasesRepository;
   final SuppliersRepository suppliersRepository;
   final ProductsRepository productsRepository;
+  final CategoriesRepository categoriesRepository;
+  final UnitsRepository unitsRepository;
 
   NewPurchaseInvoiceScreen({
     super.key,
     required this.purchasesRepository,
     SuppliersRepository? suppliersRepository,
     ProductsRepository? productsRepository,
+    CategoriesRepository? categoriesRepository,
+    UnitsRepository? unitsRepository,
   })  : suppliersRepository = suppliersRepository ?? SuppliersRepositoryImpl(),
-        productsRepository = productsRepository ?? ProductsRepositoryImpl();
+        productsRepository = productsRepository ?? ProductsRepositoryImpl(),
+        categoriesRepository = categoriesRepository ?? CategoriesRepositoryImpl(),
+        unitsRepository = unitsRepository ?? UnitsRepositoryImpl();
 
   @override
   State<NewPurchaseInvoiceScreen> createState() => _NewPurchaseInvoiceScreenState();
@@ -103,7 +150,7 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
           _invoiceNumber = invoiceNum;
           _availableSuppliers = suppliers;
           _availableProducts = products;
-          if (_itemDrafts.isEmpty && products.isNotEmpty) {
+          if (_itemDrafts.isEmpty) {
             _addNewItemRow();
           }
           _isLoading = false;
@@ -121,7 +168,7 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
 
   void _addNewItemRow([Product? initialProduct]) {
     final draft = _InvoiceItemDraft(
-      product: initialProduct ?? (_availableProducts.isNotEmpty ? _availableProducts.first : null),
+      product: initialProduct,
       initialQuantity: 1.0,
       initialCost: initialProduct?.purchasePrice,
     );
@@ -201,6 +248,41 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
     }
   }
 
+  Future<void> _openQuickAddProduct({
+    required _InvoiceItemDraft draft,
+    String? initialName,
+  }) async {
+    final createdProduct = await QuickAddProductDialog.show(
+      context,
+      initialName: initialName?.trim(),
+      initialPurchasePrice: draft.unitCost > 0 ? draft.unitCost : null,
+      productsRepository: widget.productsRepository,
+      categoriesRepository: widget.categoriesRepository,
+      unitsRepository: widget.unitsRepository,
+    );
+
+    if (createdProduct != null && mounted) {
+      setState(() {
+        final existingIdx = _availableProducts.indexWhere((p) => p.id == createdProduct.id);
+        if (existingIdx >= 0) {
+          _availableProducts[existingIdx] = createdProduct;
+        } else {
+          _availableProducts.insert(0, createdProduct);
+        }
+        draft.setProduct(createdProduct);
+        _recalculatePaidIfCash();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('تمت إضافة المنتج "${createdProduct.name}" بنجاح وتحديده في الفاتورة'),
+          backgroundColor: Colors.teal.shade700,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   Future<void> _saveInvoice() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -215,8 +297,25 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
     }
 
     for (final item in _itemDrafts) {
+      // إذا كان المنتج فارغاً ولكن المستخدم كتب اسماً يطابق منتجاً موجوداً تماماً
+      if (item.product == null && item.searchController.text.trim().isNotEmpty) {
+        final typedLower = item.searchController.text.trim().toLowerCase();
+        final exactMatch = _availableProducts.where(
+          (p) => p.name.trim().toLowerCase() == typedLower,
+        );
+        if (exactMatch.isNotEmpty) {
+          item.setProduct(exactMatch.first);
+        }
+      }
+
       if (item.product == null) {
-        setState(() => _errorMessage = 'أحد أصناف الفاتورة لم يتم تحديد منتجه');
+        final typedName = item.searchController.text.trim();
+        if (typedName.isNotEmpty) {
+          setState(() => _errorMessage =
+              'المنتج "$typedName" غير مسجل في النظام. اضغط على زر ➕ لإضافته كمنتج جديد أولاً.');
+        } else {
+          setState(() => _errorMessage = 'يرجى اختيار وتحديد المنتج لكافة أسطر الفاتورة');
+        }
         return;
       }
       if (item.quantity <= 0) {
@@ -472,42 +571,200 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    // اختيار المنتج
+                                    // اختيار المنتج (البحث والإكمال التلقائي مع خيار الإضافة السريعة)
                                     Expanded(
                                       flex: 3,
-                                      child: DropdownButtonFormField<int>(
-                                        key: ValueKey('invoice_row_${index}_${draft.product?.id}'),
-                                        initialValue: _availableProducts.any((p) => p.id == draft.product?.id)
-                                            ? draft.product?.id
-                                            : null,
-                                        isExpanded: true,
-                                        decoration: InputDecoration(
-                                          labelText: 'المنتج #${index + 1}',
-                                          border: const OutlineInputBorder(),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        ),
-                                        items: _availableProducts.map((p) {
-                                          return DropdownMenuItem<int>(
-                                            value: p.id,
-                                            child: Text(
-                                              '${p.name} (رصيد: ${p.currentStock})',
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
+                                      child: LayoutBuilder(
+                                        builder: (context, constraints) {
+                                          return RawAutocomplete<_ProductSearchOption>(
+                                            textEditingController: draft.searchController,
+                                            focusNode: draft.searchFocusNode,
+                                            optionsBuilder: (TextEditingValue textEditingValue) {
+                                              final query = textEditingValue.text.trim();
+                                              final matches = _availableProducts.where((p) {
+                                                if (query.isEmpty) return true;
+                                                final q = query.toLowerCase();
+                                                return p.name.toLowerCase().contains(q) ||
+                                                    (p.categoryName != null &&
+                                                        p.categoryName!.toLowerCase().contains(q));
+                                              }).toList();
+
+                                              final List<_ProductSearchOption> options = matches
+                                                  .map<_ProductSearchOption>((p) => _ExistingProductOption(p))
+                                                  .toList();
+
+                                              final hasExactMatch = _availableProducts.any(
+                                                (p) => p.name.trim().toLowerCase() == query.toLowerCase(),
+                                              );
+
+                                              if (query.isNotEmpty && !hasExactMatch) {
+                                                options.insert(0, _AddNewProductOption(query));
+                                              } else if (query.isEmpty) {
+                                                options.add(const _AddNewProductOption(''));
+                                              }
+
+                                              return options;
+                                            },
+                                            displayStringForOption: (option) {
+                                              if (option is _ExistingProductOption) {
+                                                return option.product.name;
+                                              }
+                                              return '';
+                                            },
+                                            onSelected: (_ProductSearchOption option) {
+                                              if (option is _ExistingProductOption) {
+                                                setState(() {
+                                                  draft.setProduct(option.product);
+                                                  _recalculatePaidIfCash();
+                                                });
+                                              } else if (option is _AddNewProductOption) {
+                                                _openQuickAddProduct(
+                                                  draft: draft,
+                                                  initialName: option.query,
+                                                );
+                                              }
+                                            },
+                                            fieldViewBuilder:
+                                                (context, controller, focusNode, onFieldSubmitted) {
+                                              return TextFormField(
+                                                controller: controller,
+                                                focusNode: focusNode,
+                                                decoration: InputDecoration(
+                                                  labelText: 'المنتج #${index + 1} *',
+                                                  hintText: 'ابحث أو اكتب اسم صنف...',
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding: const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 8,
+                                                  ),
+                                                  prefixIcon: const Icon(Icons.search, size: 20),
+                                                  suffixIcon: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      if (controller.text.isNotEmpty)
+                                                        IconButton(
+                                                          icon: const Icon(Icons.clear, size: 18),
+                                                          tooltip: 'مسح',
+                                                          onPressed: () {
+                                                            setState(() {
+                                                              draft.clearProduct();
+                                                              _recalculatePaidIfCash();
+                                                            });
+                                                          },
+                                                        ),
+                                                      IconButton(
+                                                        icon: const Icon(Icons.add_circle,
+                                                            color: Colors.teal, size: 22),
+                                                        tooltip: 'إضافة منتج جديد للتعريف السريع',
+                                                        onPressed: () => _openQuickAddProduct(
+                                                          draft: draft,
+                                                          initialName: controller.text.trim(),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                validator: (val) {
+                                                  if (draft.product == null) {
+                                                    return 'يرجى تحديد أو إضافة المنتج';
+                                                  }
+                                                  return null;
+                                                },
+                                              );
+                                            },
+                                            optionsViewBuilder: (context, onSelected, options) {
+                                              return Align(
+                                                alignment: AlignmentDirectional.topStart,
+                                                child: Material(
+                                                  elevation: 4.0,
+                                                  color: Theme.of(context).colorScheme.surface,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: Colors.grey.shade300)),
+                                                  child: ConstrainedBox(
+                                                    constraints: BoxConstraints(
+                                                      maxHeight: 280,
+                                                      maxWidth: constraints.maxWidth,
+                                                    ),
+                                                    child: ListView.separated(
+                                                      padding: const EdgeInsets.symmetric(vertical: 4),
+                                                      shrinkWrap: true,
+                                                      itemCount: options.length,
+                                                      separatorBuilder: (context, _) =>
+                                                          const Divider(height: 1),
+                                                      itemBuilder: (context, optIndex) {
+                                                        final option = options.elementAt(optIndex);
+                                                        if (option is _AddNewProductOption) {
+                                                          final label = option.query.isEmpty
+                                                              ? 'إضافة منتج جديد'
+                                                              : 'إضافة "${option.query}" كمنتج جديد';
+                                                          return ListTile(
+                                                            dense: true,
+                                                            tileColor: Theme.of(context)
+                                                                .colorScheme
+                                                                .primaryContainer
+                                                                .withValues(alpha: 0.35),
+                                                            leading: Icon(
+                                                              Icons.add_circle,
+                                                              color: Theme.of(context).colorScheme.primary,
+                                                            ),
+                                                            title: Text(
+                                                              '➕ $label',
+                                                              style: TextStyle(
+                                                                color: Theme.of(context).colorScheme.primary,
+                                                                fontWeight: FontWeight.bold,
+                                                              ),
+                                                            ),
+                                                            subtitle: const Text(
+                                                              'تعريف سريع في دليل المنتجات برصيد 0',
+                                                              style: TextStyle(fontSize: 11),
+                                                            ),
+                                                            onTap: () => onSelected(option),
+                                                          );
+                                                        }
+
+                                                        final productOption =
+                                                            option as _ExistingProductOption;
+                                                        final p = productOption.product;
+                                                        final isSelected = draft.product?.id == p.id;
+
+                                                        return ListTile(
+                                                          dense: true,
+                                                          selected: isSelected,
+                                                          leading: Icon(
+                                                            Icons.inventory_2_outlined,
+                                                            size: 20,
+                                                            color: isSelected
+                                                                ? Theme.of(context).colorScheme.primary
+                                                                : Colors.grey.shade600,
+                                                          ),
+                                                          title: Text(
+                                                            p.name,
+                                                            style: TextStyle(
+                                                              fontWeight: isSelected
+                                                                  ? FontWeight.bold
+                                                                  : FontWeight.normal,
+                                                            ),
+                                                          ),
+                                                          subtitle: Text(
+                                                            'التصنيف: ${p.categoryName ?? "عام"} | الرصيد: ${p.currentStock} ${p.unitSymbol ?? ""}',
+                                                            style: const TextStyle(fontSize: 11),
+                                                          ),
+                                                          trailing: Text(
+                                                            '${p.purchasePrice} ر.ي',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.bold,
+                                                              color: Colors.blue.shade800,
+                                                            ),
+                                                          ),
+                                                          onTap: () => onSelected(option),
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           );
-                                        }).toList(),
-                                        onChanged: (val) {
-                                          setState(() {
-                                            final selectedP = val == null
-                                                ? null
-                                                : _availableProducts.firstWhere((p) => p.id == val);
-                                            draft.product = selectedP;
-                                            if (selectedP != null) {
-                                              draft.unitCostController.text =
-                                                  selectedP.purchasePrice.toString();
-                                            }
-                                            _recalculatePaidIfCash();
-                                          });
                                         },
                                       ),
                                     ),
