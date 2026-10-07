@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../data/repositories/stock_movements_repository_impl.dart';
 import '../../domain/entities/product.dart';
@@ -223,6 +224,38 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                       const SizedBox(height: 16),
                     ],
 
+                    // حاوية الهيرو الموحدة لجرد وتسوية المخزون
+                    PrimaryHeroCard(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      icon: Icons.tune,
+                      title: 'جرد وتسوية المخزون المستودعي',
+                      badge: 'تسوية المخازن',
+                      child: IntrinsicHeight(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: PrimaryHeroMetricItem(
+                                label: 'الأصناف المتاحة للجرد',
+                                value: '${_products.length} صنف',
+                                icon: Icons.inventory_2_outlined,
+                              ),
+                            ),
+                            if (_selectedProduct != null) ...[
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: PrimaryHeroMetricItem(
+                                  label: 'الرصيد الدفتري الحالي',
+                                  value: '${_selectedProduct!.currentStock} ${_selectedProduct!.unitSymbol ?? ""}',
+                                  icon: Icons.bookmark_outline,
+                                  valueColor: const Color(0xFF93C5FD),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+
                     // 1. اختيار المنتج
                     Card(
                       child: Padding(
@@ -271,43 +304,48 @@ class _StockInventoryScreenState extends State<StockInventoryScreen> {
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'مطابقة الرصيد والجرد الفعلي',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                              ),
-                              const Divider(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceElevated,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: AppColors.border),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'الرصيد المسجل بالنظام',
-                                            style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            '${_selectedProduct!.currentStock} ${_selectedProduct!.unitSymbol ?? ""}',
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.textPrimary,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'مطابقة الرصيد والجرد الفعلي',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            ),
+                            const Divider(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Row(
+                                          children: [
+                                            Icon(Icons.bookmark_outline, size: 14, color: Colors.white70),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'الرصيد المسجل بالنظام',
+                                              style: TextStyle(fontSize: 11.5, color: Colors.white70),
                                             ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '${_selectedProduct!.currentStock} ${_selectedProduct!.unitSymbol ?? ""}',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+                                ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: TextFormField(

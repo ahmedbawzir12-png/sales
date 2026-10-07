@@ -3,6 +3,7 @@ import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
+import '../../../../core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/customers_repository_impl.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customers_repository.dart';
@@ -117,59 +118,30 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط إحصائي أعلى الشاشة — تصميم متجاوب وسلس بـ IntrinsicHeight
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // 1. حاوية المؤشرات الإحصائية للعملاء — موحدة بالهوية الزرقاء الداكنة لنظام الصندوق
+          PrimaryHeroCard(
+            icon: Icons.people_alt,
+            title: 'دليل العملاء والذمم المدينة',
+            badge: 'سجل العملاء',
             child: IntrinsicHeight(
               child: Row(
                 children: [
-                  // تم استخدام Expanded لتقسيم البطاقات الإحصائية والتكيف مع الشاشات
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.people_alt, color: AppColors.primary, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'إجمالي العملاء: ${_customers.length}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'إجمالي العملاء',
+                      value: '${_customers.length} عميل',
+                      icon: Icons.person_outline,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.account_balance_wallet, color: AppColors.error, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'ديون العملاء: ${AppFormatters.currency(_totalDebt)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.error, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'ديون العملاء المستحقة',
+                      value: AppFormatters.currency(_totalDebt),
+                      icon: Icons.account_balance_wallet_outlined,
+                      valueColor: _totalDebt > 0
+                          ? const Color(0xFFFCA5A5)
+                          : const Color(0xFF86EFAC),
                     ),
                   ),
                 ],

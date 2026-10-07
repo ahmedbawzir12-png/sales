@@ -3,6 +3,7 @@ import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import 'package:sales/features/purchases/domain/repositories/purchases_repository.dart';
 import '../../data/repositories/suppliers_repository_impl.dart';
@@ -127,67 +128,30 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط إحصائي أعلى الشاشة — تصميم متجاوب وسلس بـ IntrinsicHeight
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // 1. حاوية المؤشرات الإحصائية للموردين — موحدة بالهوية الزرقاء الداكنة لنظام الصندوق
+          PrimaryHeroCard(
+            icon: Icons.business,
+            title: 'دليل الموردين والذمم الدائنة',
+            badge: 'سجل الموردين',
             child: IntrinsicHeight(
               child: Row(
                 children: [
-                  // تم استخدام Expanded لتقسيم المساحة بالتساوي وتجنب أي تجاوز
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.people, size: 20, color: AppColors.primary),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'عدد الموردين: ${_suppliers.length}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'إجمالي الموردين',
+                      value: '${_suppliers.length} مورد',
+                      icon: Icons.people_outline,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.account_balance_wallet,
-                            size: 20,
-                            color: _totalDebt > 0 ? AppColors.error : AppColors.success,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'ديون الموردين: ${AppFormatters.currency(_totalDebt)}',
-                              style: TextStyle(
-                                color: _totalDebt > 0 ? AppColors.error : AppColors.success,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'ديون الموردين المستحقة',
+                      value: AppFormatters.currency(_totalDebt),
+                      icon: Icons.account_balance_wallet_outlined,
+                      valueColor: _totalDebt > 0
+                          ? const Color(0xFFFCA5A5)
+                          : const Color(0xFF86EFAC),
                     ),
                   ),
                 ],

@@ -5,6 +5,7 @@ import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/categories_repository_impl.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../domain/entities/category.dart';
@@ -233,96 +234,38 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
   }
 
   Widget _buildTopSummaryBar() {
-    // تم استخدام IntrinsicHeight لضمان تمدد البطاقات رأسياً بالتساوي دون تحديد أي ارتفاع ثابت
-    return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    return PrimaryHeroCard(
+      icon: Icons.inventory_2_outlined,
+      title: 'مؤشرات المستودع والأصناف',
+      badge: 'المخزون الحالي',
       child: IntrinsicHeight(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // تم استخدام Expanded لتقسيم المساحة المتاحة بالتساوي وبشكل متجاوب تماماً
             Expanded(
-              child: _buildSummaryPill(
+              child: PrimaryHeroMetricItem(
                 label: 'إجمالي الأصناف',
-                value: '${_products.length}',
-                color: AppColors.primary,
-                icon: Icons.inventory_2_outlined,
+                value: '${_products.length} صنف',
+                icon: Icons.category_outlined,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
-              child: InkWell(
+              child: PrimaryHeroMetricItem(
+                label: 'نواقص المخزون',
+                value: '$_lowStockCount صنف',
+                icon: Icons.warning_amber_rounded,
+                isSelected: _onlyLowStock,
+                valueColor: _lowStockCount > 0 ? const Color(0xFFFDE047) : const Color(0xFF86EFAC),
+                subtitle: _onlyLowStock ? 'مفلترة حالياً' : 'اضغط للتصفية',
                 onTap: () {
                   setState(() => _onlyLowStock = !_onlyLowStock);
                   _loadProducts();
                 },
-                borderRadius: BorderRadius.circular(12),
-                child: _buildSummaryPill(
-                  label: 'نواقص المخزون',
-                  value: '$_lowStockCount',
-                  color: _lowStockCount > 0 ? AppColors.warning : AppColors.success,
-                  icon: Icons.warning_amber_rounded,
-                  isSelected: _onlyLowStock,
-                ),
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSummaryPill({
-    required String label,
-    required String value,
-    required Color color,
-    required IconData icon,
-    bool isSelected = false,
-  }) {
-    // بطاقة مؤشرات متكيفة ديناميكياً بدون أي أبعاد ثابتة، مع مسافة داخلية مريحة 14×12 وحواف 12px
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), // مساحة داخلية مريحة
-      decoration: BoxDecoration(
-        color: isSelected ? color.withAlpha(25) : AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12), // حواف دائرية ناعمة
-        border: Border.all(
-          color: isSelected ? color : AppColors.border,
-          width: isSelected ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 10),
-          // تم إضافة Expanded لمنع تجاوز النصوص على الشاشات الصغيرة
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

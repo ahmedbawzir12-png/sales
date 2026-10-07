@@ -3,6 +3,7 @@ import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
 import '../../domain/entities/purchase_invoice_status.dart';
@@ -140,69 +141,30 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط ملخص إجمالي المشتريات والديون — تصميم مرن متجاوب بـ IntrinsicHeight
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // 1. حاوية المؤشرات المالية للمشتريات — موحدة بالهوية الزرقاء الداكنة لنظام الصندوق
+          PrimaryHeroCard(
+            icon: Icons.shopping_cart_outlined,
+            title: 'ملخص فواتير المشتريات',
+            badge: 'المشتريات والموردين',
             child: IntrinsicHeight(
               child: Row(
                 children: [
-                  // تم استخدام Expanded لضمان التجاوب والتمدد حسب حجم الشاشة
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'إجمالي المشتريات (النشطة)',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppFormatters.currency(_totalCompletedAmount),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'إجمالي المشتريات (النشطة)',
+                      value: AppFormatters.currency(_totalCompletedAmount),
+                      icon: Icons.receipt_long,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            'المتبقي غير المسدد (ديون)',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppFormatters.currency(_totalRemainingDebt),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: _totalRemainingDebt > 0 ? AppColors.error : AppColors.success,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'المتبقي غير المسدد (ديون)',
+                      value: AppFormatters.currency(_totalRemainingDebt),
+                      icon: Icons.account_balance_wallet_outlined,
+                      valueColor: _totalRemainingDebt > 0
+                          ? const Color(0xFFFCA5A5)
+                          : const Color(0xFF86EFAC),
                     ),
                   ),
                 ],

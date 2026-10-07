@@ -4,6 +4,7 @@ import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
+import '../../../../core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/sales_repository_impl.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_invoice_status.dart';
@@ -127,83 +128,37 @@ class _SalesListScreenState extends State<SalesListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط المؤشرات المالية للمبيعات — متجاوب وسلس بـ IntrinsicHeight بدون أبعاد ثابتة
-          Container(
-            color: AppColors.surface,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // 1. حاوية المؤشرات المالية للمبيعات — موحدة بالهوية الزرقاء الداكنة لنظام الصندوق
+          PrimaryHeroCard(
+            icon: Icons.point_of_sale,
+            title: 'ملخص حركة المبيعات',
+            badge: 'مبيعات المعرض',
             child: IntrinsicHeight(
               child: Row(
                 children: [
-                  // تم استخدام Expanded لتقسيم المؤشرات بالتساوي وضمان التجاوب
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('إجمالي المبيعات', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppFormatters.currency(_metrics['totalSales'] ?? 0),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'إجمالي المبيعات',
+                      value: AppFormatters.currency(_metrics['totalSales'] ?? 0),
+                      icon: Icons.receipt_long,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('المقبوض نقداً', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppFormatters.currency(_metrics['totalPaid'] ?? 0),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.success),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'المقبوض نقداً',
+                      value: AppFormatters.currency(_metrics['totalPaid'] ?? 0),
+                      icon: Icons.check_circle_outline,
+                      valueColor: const Color(0xFF86EFAC),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceElevated,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text('الآجل المتبقي', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text(
-                            AppFormatters.currency(_metrics['totalRemaining'] ?? 0),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.error),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                    child: PrimaryHeroMetricItem(
+                      label: 'الآجل المتبقي',
+                      value: AppFormatters.currency(_metrics['totalRemaining'] ?? 0),
+                      icon: Icons.schedule,
+                      valueColor: const Color(0xFFFCA5A5),
                     ),
                   ),
                 ],
