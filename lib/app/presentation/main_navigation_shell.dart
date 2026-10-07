@@ -8,6 +8,8 @@ import '../../features/products/presentation/screens/products_list_screen.dart';
 import '../../features/products/presentation/screens/stock_inventory_screen.dart';
 import '../../features/purchases/presentation/screens/purchases_list_screen.dart';
 import '../../features/sales/presentation/screens/sales_list_screen.dart';
+import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/reports/presentation/screens/reports_screen.dart';
 import '../../features/settings/presentation/screens/foundation_screen.dart';
 import '../../features/suppliers/presentation/screens/suppliers_list_screen.dart';
 
@@ -33,6 +35,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     const CashboxScreen(),
     const ExpensesScreen(),
     const StockInventoryScreen(),
+    const DashboardScreen(),
+    const ReportsScreen(),
     const FoundationScreen(),
   ];
 
@@ -96,6 +100,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             icon: Icon(Icons.tune_outlined),
             selectedIcon: Icon(Icons.tune, color: AppColors.primary),
             label: 'الجرد والتسوية',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard, color: AppColors.primary),
+            label: 'لوحة التحكم',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.analytics_outlined),
+            selectedIcon: Icon(Icons.analytics, color: AppColors.primary),
+            label: 'التقارير',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

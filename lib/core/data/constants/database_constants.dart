@@ -5,8 +5,8 @@ class DatabaseConstants {
   /// اسم ملف قاعدة البيانات
   static const String databaseName = 'furniture_sales.db';
 
-  /// الإصدار الحالي لقاعدة البيانات (المرحلة السادسة: الصندوق وحركات النقدية والمصروفات)
-  static const int databaseVersion = 6;
+  /// الإصدار الحالي لقاعدة البيانات (المرحلة الثامنة: لوحة التحكم والتقارير المالية والمخزنية)
+  static const int databaseVersion = 7;
 
   /// أوامر التهيئة (Pragmas)
   static const String pragmaForeignKeysOn = 'PRAGMA foreign_keys = ON;';
