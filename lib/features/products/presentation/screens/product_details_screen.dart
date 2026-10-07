@@ -4,6 +4,7 @@ import 'package:sales/core/presentation/constants/app_constants.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/core/presentation/widgets/app_card.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../data/repositories/stock_movements_repository_impl.dart';
 import '../../domain/entities/product.dart';
@@ -186,64 +187,71 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 
   Widget _buildHeaderCard(Product product) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    product.name,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+    // تم استخدام AppCard لتوفير مساحة داخلية متسعة 16px بدون أي أبعاد ثابتة
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // تم إضافة Expanded لضمان عدم تجاوز النص لاسم المنتج
+              Expanded(
+                child: Text(
+                  product.name,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: product.isActive ? AppColors.successContainer : AppColors.surfaceHighlight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  product.isActive ? 'نشط' : 'معطل',
+                  style: TextStyle(
+                    color: product.isActive ? AppColors.success : AppColors.textMuted,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: product.isActive ? AppColors.successContainer : AppColors.surfaceHighlight,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    product.isActive ? 'نشط' : 'معطل',
-                    style: TextStyle(
-                      color: product.isActive ? AppColors.success : AppColors.textMuted,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.category_outlined, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 6),
-                Text(
-                  product.categoryName ?? 'تصنيف غير محدد',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-                const SizedBox(width: 16),
-                const Icon(Icons.straighten_outlined, size: 16, color: AppColors.textSecondary),
-                const SizedBox(width: 6),
-                Text(
-                  'وحدة القياس: ${product.unitSymbol ?? ""}',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                ),
-              ],
-            ),
-            if (product.description != null && product.description!.isNotEmpty) ...[
-              const Divider(height: 20),
-              Text(
-                product.description!,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.category_outlined, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  product.categoryName ?? 'تصنيف غير محدد',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 16),
+              const Icon(Icons.straighten_outlined, size: 16, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'وحدة القياس: ${product.unitSymbol ?? ""}',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          if (product.description != null && product.description!.isNotEmpty) ...[
+            const Divider(height: 20),
+            Text(
+              product.description!,
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -266,109 +274,126 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       statusLabel = 'متوفر بكمية جيدة';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'حالة المخزون',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha(35),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatColumn(
-                  'الرصيد الفعلي الحالي',
-                  '${product.currentStock} ${product.unitSymbol ?? ""}',
-                  statusColor,
-                ),
-                Container(height: 35, width: 1, color: AppColors.divider),
-                _buildStatColumn(
-                  'حد إعادة الطلب الأدنى',
-                  '${product.minimumStock} ${product.unitSymbol ?? ""}',
-                  AppColors.textSecondary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.tune_outlined),
-                label: const Text('إجراء تسوية جردية لهذا المنتج'),
-                onPressed: () async {
-                  final result = await Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => StockInventoryScreen(initialProductId: product.id),
-                    ),
-                  );
-                  if (result == true) {
-                    _loadProductDetails();
-                  }
-                },
+    // تم استخدام AppCard بمسافة 16px وبدون أبعاد ثابتة
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'حالة المخزون',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+
+          // تم استبدال الارتفاع الثابت بـ IntrinsicHeight للتمدد التلقائي والتوزيع المرن
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildStatColumn(
+                    'الرصيد الفعلي الحالي',
+                    '${product.currentStock} ${product.unitSymbol ?? ""}',
+                    statusColor,
+                  ),
+                ),
+                const VerticalDivider(width: 24, thickness: 1, color: AppColors.divider),
+                Expanded(
+                  child: _buildStatColumn(
+                    'حد إعادة الطلب الأدنى',
+                    '${product.minimumStock} ${product.unitSymbol ?? ""}',
+                    AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.tune_outlined),
+              label: const Text('إجراء تسوية جردية لهذا المنتج'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(64, 48), // مساحة ضغط مريحة لا تقل عن 48px
+              ),
+              onPressed: () async {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => StockInventoryScreen(initialProductId: product.id),
+                  ),
+                );
+                if (result == true) {
+                  _loadProductDetails();
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildPricingCard(Product product) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'بيانات التسعير وتكلفة المخزون',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            const Divider(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+    // تم استخدام AppCard المتجاوب بدون أبعاد ثابتة
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'بيانات التسعير وتكلفة المخزون',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          ),
+          const Divider(height: 20),
+
+          // تم استبدال الارتفاع الثابت بـ IntrinsicHeight للتمدد التلقائي
+          IntrinsicHeight(
+            child: Row(
               children: [
-                _buildStatColumn(
-                  'آخر سعر شراء',
-                  AppFormatters.currency(product.purchasePrice, currency: AppConstants.defaultCurrency),
-                  AppColors.textPrimary,
+                Expanded(
+                  child: _buildStatColumn(
+                    'آخر سعر شراء',
+                    AppFormatters.currency(product.purchasePrice, currency: AppConstants.defaultCurrency),
+                    AppColors.textPrimary,
+                  ),
                 ),
-                Container(height: 35, width: 1, color: AppColors.divider),
-                _buildStatColumn(
-                  'متوسط التكلفة المرجح',
-                  AppFormatters.currency(product.averageCost, currency: AppConstants.defaultCurrency),
-                  Colors.blue.shade800,
+                const VerticalDivider(width: 16, thickness: 1, color: AppColors.divider),
+                Expanded(
+                  child: _buildStatColumn(
+                    'متوسط التكلفة المرجح',
+                    AppFormatters.currency(product.averageCost, currency: AppConstants.defaultCurrency),
+                    AppColors.info,
+                  ),
                 ),
-                Container(height: 35, width: 1, color: AppColors.divider),
-                _buildStatColumn(
-                  'سعر البيع',
-                  AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency),
-                  AppColors.primary,
+                const VerticalDivider(width: 16, thickness: 1, color: AppColors.divider),
+                Expanded(
+                  child: _buildStatColumn(
+                    'سعر البيع',
+                    AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency),
+                    AppColors.primary,
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

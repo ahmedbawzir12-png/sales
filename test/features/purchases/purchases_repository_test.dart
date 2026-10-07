@@ -9,6 +9,7 @@ import 'package:sales/features/purchases/data/repositories/purchases_repository_
 import 'package:sales/features/purchases/domain/entities/purchase_invoice.dart';
 import 'package:sales/features/purchases/domain/entities/purchase_invoice_item.dart';
 import 'package:sales/features/purchases/domain/entities/purchase_payment_type.dart';
+import 'package:sales/features/cash/data/repositories/cashbox_repository_impl.dart';
 import 'package:sales/features/suppliers/data/repositories/suppliers_repository_impl.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -23,8 +24,12 @@ void main() {
   });
 
   group('PurchasesRepository Tests (دورة المشتريات والمخزون والتكلفة المرجحة)', () {
-    test('شراء نقدي كامل: يزيد المخزون، يحدث متوسط التكلفة، يسجل حركة الشراء، ولا ينشئ ديناً على المورد', () async {
+    setUp(() async {
       await DatabaseService.instance.initForTesting(inMemory: true);
+      await CashboxRepositoryImpl().setOpeningBalance(10000000);
+    });
+
+    test('شراء نقدي كامل: يزيد المخزون، يحدث متوسط التكلفة، يسجل حركة الشراء، ولا ينشئ ديناً على المورد', () async {
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final stockRepo = StockMovementsRepositoryImpl();
@@ -112,7 +117,6 @@ void main() {
     });
 
     test('شراء آجل جزئي: يسجل المتبقي كدين على المورد بدقة', () async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final suppliersRepo = SuppliersRepositoryImpl();
@@ -169,7 +173,6 @@ void main() {
     });
 
     test('الخصم المالي: يقلل من صافي الفاتورة بدقة', () async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final suppliersRepo = SuppliersRepositoryImpl();
@@ -228,7 +231,6 @@ void main() {
     });
 
     test('الذرية (Atomicity): فشل أي خطوة داخل المعاملة يلغي كامل الفاتورة وتأثير المخزون', () async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final suppliersRepo = SuppliersRepositoryImpl();
@@ -298,7 +300,6 @@ void main() {
     });
 
     test('إلغاء فاتورة شراء: يخصم المخزون بحركة عكسية ويخفض دين المورد ويحمي من المخزون السالب', () async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final stockRepo = StockMovementsRepositoryImpl();
@@ -380,7 +381,6 @@ void main() {
     });
 
     test('يرفض إلغاء الفاتورة إذا كان رصيد المخزون الحالي أقل من الكمية المشتراة لمنع السالب', () async {
-      await DatabaseService.instance.initForTesting(inMemory: true);
       final productsRepo = ProductsRepositoryImpl();
       final purchasesRepo = PurchasesRepositoryImpl();
       final stockRepo = StockMovementsRepositoryImpl();

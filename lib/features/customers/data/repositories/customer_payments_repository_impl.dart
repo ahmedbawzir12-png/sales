@@ -10,21 +10,32 @@ import '../../domain/repositories/customer_payments_repository.dart';
 import '../models/customer_payment_model.dart';
 import 'customer_ledger_repository_impl.dart';
 
+import '../../../cash/domain/entities/cash_flow_direction.dart';
+import '../../../cash/domain/entities/cash_transaction.dart';
+import '../../../cash/domain/entities/cash_transaction_type.dart';
+import '../../../cash/domain/repositories/cashbox_repository.dart';
+import '../../../cash/data/repositories/cashbox_repository_impl.dart';
+
 class CustomerPaymentsRepositoryImpl implements CustomerPaymentsRepository {
   final DatabaseService _dbService;
   final CustomerLedgerRepositoryImpl _ledgerRepo;
   final FinancialFlowIntegrationService _financialService;
+  final CashboxRepository _cashboxRepo;
 
   CustomerPaymentsRepositoryImpl({
     DatabaseService? dbService,
     CustomerLedgerRepositoryImpl? ledgerRepo,
     FinancialFlowIntegrationService? financialService,
+    CashboxRepository? cashboxRepo,
   })  : _dbService = dbService ?? DatabaseService.instance,
         _ledgerRepo = ledgerRepo ??
             CustomerLedgerRepositoryImpl(
                 dbService: dbService ?? DatabaseService.instance),
         _financialService =
-            financialService ?? FinancialFlowIntegrationService.instance;
+            financialService ?? FinancialFlowIntegrationService.instance,
+        _cashboxRepo = cashboxRepo ??
+            CashboxRepositoryImpl(
+                dbService: dbService ?? DatabaseService.instance);
 
   @override
   Future<String> generateNextPaymentNumber([DatabaseExecutor? executor]) async {
@@ -190,7 +201,24 @@ class CustomerPaymentsRepositoryImpl implements CustomerPaymentsRepository {
           ),
         );
 
-        // 6. تجهيز وإشعار التدفق المالي للصندوق (Cash In Integration Point)
+        // 6. تسجيل حركة التدفق في الصندوق النقدية (Cash In) داخل نفس المعاملة الذرية
+        await _cashboxRepo.recordCashTransactionWithExecutor(
+          txn,
+          CashTransaction(
+            id: 0,
+            type: CashTransactionType.customerPayment,
+            direction: CashFlowDirection.cashIn,
+            amount: payment.amount,
+            transactionDate: payment.paymentDate,
+            referenceType: 'customer_payment',
+            referenceId: paymentId,
+            description: 'قبض دفعة من العميل $customerName (سند رقم $paymentNumber)',
+            notes: payment.notes,
+            createdAt: now,
+          ),
+        );
+
+        // 7. إشعار التدفق المالي التكاملي
         _financialService.dispatchFlow(
           FinancialFlowRecord(
             type: FinancialFlowType.cashIn,

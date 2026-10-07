@@ -137,8 +137,12 @@ class _RecordSupplierPaymentDialogState
           ),
         ],
       ),
-      content: SizedBox(
-        width: 480,
+      // تم استبدال العرض الثابت بـ ConstrainedBox لمرونة التكيف على الشاشات المختلفة
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 480,
+          minWidth: 280,
+        ),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -161,37 +165,44 @@ class _RecordSupplierPaymentDialogState
                     ),
                   ),
 
-                // بطاقة ملخص الأرصدة
+                // بطاقة ملخص الأرصدة - استخدام IntrinsicHeight مع Expanded لمنع الارتفاع الثابت
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: AppColors.surfaceElevated,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildBalanceInfo(
-                        title: 'الدين الحالي للمورد',
-                        amount: widget.currentDebt,
-                        color: AppColors.error,
-                      ),
-                      Container(width: 1, height: 40, color: Colors.grey.shade300),
-                      _buildBalanceInfo(
-                        title: 'المبلغ المدفوع',
-                        amount: _enteredAmount,
-                        color: AppColors.primary,
-                      ),
-                      Container(width: 1, height: 40, color: Colors.grey.shade300),
-                      _buildBalanceInfo(
-                        title: 'المتبقي بعد الدفع',
-                        amount: _remainingAfterPayment,
-                        color: _remainingAfterPayment == 0
-                            ? AppColors.success
-                            : AppColors.warning,
-                      ),
-                    ],
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _buildBalanceInfo(
+                            title: 'الدين الحالي للمورد',
+                            amount: widget.currentDebt,
+                            color: AppColors.error,
+                          ),
+                        ),
+                        const VerticalDivider(width: 16, thickness: 1),
+                        Expanded(
+                          child: _buildBalanceInfo(
+                            title: 'المبلغ المدفوع',
+                            amount: _enteredAmount,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const VerticalDivider(width: 16, thickness: 1),
+                        Expanded(
+                          child: _buildBalanceInfo(
+                            title: 'المتبقي بعد الدفع',
+                            amount: _remainingAfterPayment,
+                            color: _remainingAfterPayment == 0
+                                ? AppColors.success
+                                : AppColors.warning,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

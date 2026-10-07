@@ -47,6 +47,7 @@ class AppFormatters {
       AppFormatters.currency(amount, currency: currency);
 
   static String formatDate(DateTime dateTime) => AppFormatters.date(dateTime);
+  static String formatDateTime(DateTime dateTime) => AppFormatters.dateTime(dateTime);
 }
 
 /// الاسم المختصر للتوافق

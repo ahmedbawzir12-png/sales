@@ -17,18 +17,26 @@ import '../../domain/services/weighted_average_cost_calculator.dart';
 import '../models/purchase_invoice_item_model.dart';
 import '../models/purchase_invoice_model.dart';
 
+import '../../../cash/domain/entities/cash_flow_direction.dart';
+import '../../../cash/domain/entities/cash_transaction.dart';
+import '../../../cash/domain/entities/cash_transaction_type.dart';
+import '../../../cash/domain/repositories/cashbox_repository.dart';
+import '../../../cash/data/repositories/cashbox_repository_impl.dart';
+
 /// تطبيق مستودع المشتريات باستخدام SQLite مع المعاملات الذرية والتكامل المحكم مع المخزون
 class PurchasesRepositoryImpl implements PurchasesRepository {
   final DatabaseService _databaseService;
   final StockMovementsRepositoryImpl _stockMovementsRepository;
   final SupplierLedgerRepositoryImpl _supplierLedgerRepository;
   final FinancialFlowIntegrationService _financialService;
+  final CashboxRepository _cashboxRepo;
 
   PurchasesRepositoryImpl({
     DatabaseService? databaseService,
     StockMovementsRepositoryImpl? stockMovementsRepository,
     SupplierLedgerRepositoryImpl? supplierLedgerRepository,
     FinancialFlowIntegrationService? financialService,
+    CashboxRepository? cashboxRepo,
   })  : _databaseService = databaseService ?? DatabaseService.instance,
         _stockMovementsRepository = stockMovementsRepository ??
             StockMovementsRepositoryImpl(
@@ -37,7 +45,10 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
             SupplierLedgerRepositoryImpl(
                 dbService: databaseService ?? DatabaseService.instance),
         _financialService =
-            financialService ?? FinancialFlowIntegrationService.instance;
+            financialService ?? FinancialFlowIntegrationService.instance,
+        _cashboxRepo = cashboxRepo ??
+            CashboxRepositoryImpl(
+                dbService: databaseService ?? DatabaseService.instance);
 
   @override
   Future<String> generateNextInvoiceNumber() async {
@@ -389,8 +400,24 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           );
         }
 
-        // و) تجهيز التدفق المالي للصندوق (Cash Out Integration Point) للمبلغ المدفوع نقداً
+        // و) تسجيل حركة التدفق المالي في الصندوق (Cash Out) للمبلغ المدفوع نقداً داخل نفس المعاملة الذرية
+        // يتم التحقق التلقائي من كفاية رصيد الصندوق ومنع الرصيد السالب
         if (invoice.paidAmount > 0) {
+          await _cashboxRepo.recordCashTransactionWithExecutor(
+            txn,
+            CashTransaction(
+              id: 0,
+              type: CashTransactionType.purchase,
+              direction: CashFlowDirection.cashOut,
+              amount: invoice.paidAmount,
+              transactionDate: invoice.invoiceDate,
+              referenceType: 'purchase_invoice',
+              referenceId: invoiceId,
+              description: 'سداد نقدي لفاتورة مشتريات رقم $trimmedInvoiceNumber للمورد ${supplier['name']}',
+              createdAt: DateTime.parse(now),
+            ),
+          );
+
           _financialService.dispatchFlow(
             FinancialFlowRecord(
               type: FinancialFlowType.cashOut,
@@ -558,8 +585,23 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
           }
         }
 
-        // 6. تجهيز استرداد نقدي إن كان تم سداد مبلغ للمورد (Cash In Integration Point)
+        // 6. تسجيل استرداد نقدي في الصندوق إن كان تم سداد مبلغ للمورد (Cash In)
         if (paidAmount > 0) {
+          await _cashboxRepo.recordCashTransactionWithExecutor(
+            txn,
+            CashTransaction(
+              id: 0,
+              type: CashTransactionType.purchaseReturnRefund,
+              direction: CashFlowDirection.cashIn,
+              amount: paidAmount,
+              transactionDate: DateTime.parse(now),
+              referenceType: 'purchase_invoice_cancellation',
+              referenceId: invoiceId,
+              description: 'استرداد نقدي إثر إلغاء فاتورة مشتريات رقم $invoiceNumber',
+              createdAt: DateTime.parse(now),
+            ),
+          );
+
           _financialService.dispatchFlow(
             FinancialFlowRecord(
               type: FinancialFlowType.cashIn,

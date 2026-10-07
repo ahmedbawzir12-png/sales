@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import '../../features/cash/presentation/screens/cashbox_screen.dart';
 import '../../features/customers/presentation/screens/customers_list_screen.dart';
+import '../../features/expenses/presentation/screens/expenses_screen.dart';
 import '../../features/products/presentation/screens/products_list_screen.dart';
 import '../../features/products/presentation/screens/stock_inventory_screen.dart';
 import '../../features/purchases/presentation/screens/purchases_list_screen.dart';
@@ -28,6 +30,8 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     PurchasesListScreen(),
     const CustomersListScreen(),
     SuppliersListScreen(),
+    const CashboxScreen(),
+    const ExpensesScreen(),
     const StockInventoryScreen(),
     const FoundationScreen(),
   ];
@@ -77,6 +81,16 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
             icon: Icon(Icons.business_outlined),
             selectedIcon: Icon(Icons.business, color: AppColors.primary),
             label: 'الموردون',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.point_of_sale_outlined),
+            selectedIcon: Icon(Icons.point_of_sale, color: AppColors.primary),
+            label: 'الصندوق',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long, color: AppColors.primary),
+            label: 'المصروفات',
           ),
           NavigationDestination(
             icon: Icon(Icons.tune_outlined),

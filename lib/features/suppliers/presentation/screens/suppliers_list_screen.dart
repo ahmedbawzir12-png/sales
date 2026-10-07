@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
+import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/core/presentation/widgets/app_card.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import 'package:sales/features/purchases/domain/repositories/purchases_repository.dart';
 import '../../data/repositories/suppliers_repository_impl.dart';
@@ -125,43 +127,71 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط إحصائي أعلى الشاشة
+          // 1. شريط إحصائي أعلى الشاشة — تصميم متجاوب وسلس بـ IntrinsicHeight
           Container(
+            color: AppColors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.people, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'عدد الموردين: ${_suppliers.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  // تم استخدام Expanded لتقسيم المساحة بالتساوي وتجنب أي تجاوز
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
                       ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _totalDebt > 0 ? Colors.red.shade50 : Colors.green.shade50,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: _totalDebt > 0 ? Colors.red.shade200 : Colors.green.shade200,
+                      child: Row(
+                        children: [
+                          const Icon(Icons.people, size: 20, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'عدد الموردين: ${_suppliers.length}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Text(
-                    'إجمالي الديون: ${AppFormatters.currency(_totalDebt)}',
-                    style: TextStyle(
-                      color: _totalDebt > 0 ? Colors.red.shade800 : Colors.green.shade800,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.account_balance_wallet,
+                            size: 20,
+                            color: _totalDebt > 0 ? AppColors.error : AppColors.success,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'ديون الموردين: ${AppFormatters.currency(_totalDebt)}',
+                              style: TextStyle(
+                                color: _totalDebt > 0 ? AppColors.error : AppColors.success,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -249,66 +279,102 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
                               separatorBuilder: (context, index) => const SizedBox(height: 6),
                               itemBuilder: (context, index) {
                                 final s = _suppliers[index];
-                                return Card(
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: s.isActive
-                                          ? Theme.of(context).colorScheme.primaryContainer
-                                          : Colors.grey.shade200,
-                                      child: Icon(
-                                        Icons.business,
-                                        color: s.isActive
-                                            ? Theme.of(context).colorScheme.primary
-                                            : Colors.grey,
+                                // تم استبدال Card بـ AppCard المتجاوب مع مسافة 16px وحواف ناعمة 14px وبدون أبعاد ثابتة
+                                return AppCard(
+                                  padding: const EdgeInsets.all(16), // مسافة داخلية مريحة لا تقل عن 16px
+                                  backgroundColor: s.isActive ? AppColors.surface : AppColors.surfaceElevated,
+                                  borderColor: s.currentBalance > 0 ? AppColors.error.withAlpha(90) : AppColors.border,
+                                  onTap: () async {
+                                    await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => SupplierDetailsScreen(
+                                          supplierId: s.id,
+                                          suppliersRepository: widget.repository,
+                                          purchasesRepository: widget.purchasesRepository,
+                                        ),
                                       ),
-                                    ),
-                                    title: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            s.name,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: s.isActive ? null : Colors.grey,
-                                            ),
-                                          ),
+                                    );
+                                    _loadSuppliers();
+                                  },
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      // أيقونة المورد الدائرية
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: s.isActive
+                                              ? AppColors.primaryContainer
+                                              : AppColors.surfaceHighlight,
+                                          shape: BoxShape.circle,
                                         ),
-                                        if (s.currentBalance > 0)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red.shade50,
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.red.shade200),
-                                            ),
-                                            child: Text(
-                                              'مستحق: ${AppFormatters.currency(s.currentBalance)}',
+                                        child: Icon(
+                                          Icons.business,
+                                          color: s.isActive ? AppColors.primary : AppColors.textMuted,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+
+                                      // تفاصيل المورد — تم استخدام Expanded لضمان عدم تجاوز النصوص
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              s.name,
                                               style: TextStyle(
-                                                color: Colors.red.shade800,
-                                                fontSize: 12,
+                                                fontSize: 15,
                                                 fontWeight: FontWeight.bold,
+                                                color: s.isActive ? AppColors.textPrimary : AppColors.textMuted,
                                               ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              s.phone ?? s.address ?? (s.isActive ? 'مورد نشط' : 'مورد معطل'),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: s.isActive ? AppColors.textSecondary : AppColors.textMuted,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // بيانات الديون وحالة الحساب
+                                      if (s.currentBalance > 0)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.errorContainer,
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(color: AppColors.error.withAlpha(50)),
+                                          ),
+                                          child: Text(
+                                            'مستحق: ${AppFormatters.currency(s.currentBalance)}',
+                                            style: const TextStyle(
+                                              color: AppColors.error,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
-                                      ],
-                                    ),
-                                    subtitle: Text(
-                                      s.phone ?? s.address ?? (s.isActive ? 'مورد نشط' : 'مورد معطل'),
-                                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                                    ),
-                                    trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                                    onTap: () async {
-                                      await Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => SupplierDetailsScreen(
-                                            supplierId: s.id,
-                                            suppliersRepository: widget.repository,
-                                            purchasesRepository: widget.purchasesRepository,
+                                        )
+                                      else
+                                        const Text(
+                                          'لا توجد ديون',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: AppColors.success,
                                           ),
                                         ),
-                                      );
-                                      _loadSuppliers();
-                                    },
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
+                                    ],
                                   ),
                                 );
                               },

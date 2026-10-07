@@ -458,19 +458,20 @@ class _PosScreenState extends State<PosScreen> {
                       final isOutOfStock = product.currentStock <= 0;
 
                       return Card(
-                        elevation: 1,
-                        color: isOutOfStock ? Colors.grey.shade100 : Colors.white,
+                        elevation: 0,
+                        color: isOutOfStock ? Colors.grey.shade50 : Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(14),
                           side: BorderSide(
                             color: isOutOfStock ? Colors.grey.shade300 : AppColors.border,
                           ),
                         ),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(14),
                           onTap: isOutOfStock ? null : () => _addToCart(product),
                           child: Padding(
-                            padding: const EdgeInsets.all(10),
+                            // تم زيادة الهوامش الداخلية لتحسين القراءة وتجنب اختناق النصوص
+                            padding: const EdgeInsets.all(12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

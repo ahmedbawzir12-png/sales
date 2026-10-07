@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
+import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/core/presentation/widgets/app_card.dart';
 import '../../data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
 import '../../domain/entities/purchase_invoice_status.dart';
@@ -138,47 +140,73 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط ملخص إجمالي المشتريات والديون
+          // 1. شريط ملخص إجمالي المشتريات والديون — تصميم مرن متجاوب بـ IntrinsicHeight
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'إجمالي المشتريات (النشطة)',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+            color: AppColors.surface,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  // تم استخدام Expanded لضمان التجاوب والتمدد حسب حجم الشاشة
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      Text(
-                        AppFormatters.currency(_totalCompletedAmount),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'إجمالي المشتريات (النشطة)',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppFormatters.currency(_totalCompletedAmount),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'المتبقي غير المسدد (ديون)',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
                       ),
-                      Text(
-                        AppFormatters.currency(_totalRemainingDebt),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: _totalRemainingDebt > 0 ? Colors.red.shade800 : Colors.green.shade800,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text(
+                            'المتبقي غير المسدد (ديون)',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            AppFormatters.currency(_totalRemainingDebt),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: _totalRemainingDebt > 0 ? AppColors.error : AppColors.success,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -303,112 +331,143 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final invoice = _invoices[index];
-                                return Card(
-                                  elevation: 1,
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: invoice.isCancelled
-                                          ? Colors.red.shade50
-                                          : invoice.isPaidInFull
-                                              ? Colors.green.shade50
-                                              : Colors.orange.shade50,
-                                      child: Icon(
-                                        invoice.isCancelled
-                                            ? Icons.close
-                                            : invoice.isPaidInFull
-                                                ? Icons.check
-                                                : Icons.access_time,
-                                        color: invoice.isCancelled
-                                            ? Colors.red
-                                            : invoice.isPaidInFull
-                                                ? Colors.green
-                                                : Colors.orange,
+                                // تم استبدال Card بـ AppCard المتجاوب بمسافة 16px وحواف ناعمة 14px وبدون أبعاد ثابتة
+                                return AppCard(
+                                  padding: const EdgeInsets.all(16), // مسافة داخلية مريحة لا تقل عن 16px
+                                  backgroundColor: invoice.isCancelled ? AppColors.surfaceElevated : AppColors.surface,
+                                  borderColor: invoice.isCancelled
+                                      ? AppColors.borderStrong
+                                      : (!invoice.isPaidInFull && invoice.remainingAmount > 0
+                                          ? AppColors.warning.withAlpha(90)
+                                          : AppColors.border),
+                                  onTap: () async {
+                                    await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => PurchaseInvoiceDetailsScreen(
+                                          invoiceId: invoice.id,
+                                          purchasesRepository: widget.repository,
+                                        ),
                                       ),
-                                    ),
-                                    title: Row(
-                                      children: [
-                                        Text(
-                                          invoice.invoiceNumber,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            decoration: invoice.isCancelled
-                                                ? TextDecoration.lineThrough
-                                                : null,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.grey.shade100,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Text(
-                                            invoice.paymentType.arabicLabel,
-                                            style: const TextStyle(fontSize: 11),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'المورد: ${invoice.supplierName ?? "غير محدد"}',
-                                          style: const TextStyle(fontWeight: FontWeight.w500),
-                                        ),
-                                        Text(
-                                          'التاريخ: ${AppFormatters.date(invoice.invoiceDate)}',
-                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                    trailing: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          AppFormatters.currency(invoice.total),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 15,
-                                            color: invoice.isCancelled
-                                                ? Colors.grey
-                                                : Theme.of(context).colorScheme.primary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          invoice.isCancelled
-                                              ? 'ملغاة'
+                                    );
+                                    _loadInvoices();
+                                  },
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      // أيقونة حالة الفاتورة بتصميم دائري متناسق
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: invoice.isCancelled
+                                              ? AppColors.surfaceHighlight
                                               : invoice.isPaidInFull
-                                                  ? 'مسددة بالكامل'
-                                                  : 'متبقي: ${AppFormatters.currency(invoice.remainingAmount)}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: invoice.isCancelled
-                                                ? Colors.red
+                                                  ? AppColors.successContainer
+                                                  : AppColors.warningContainer,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          invoice.isCancelled
+                                              ? Icons.close
+                                              : invoice.isPaidInFull
+                                                  ? Icons.check
+                                                  : Icons.access_time,
+                                          color: invoice.isCancelled
+                                              ? AppColors.textMuted
+                                              : invoice.isPaidInFull
+                                                  ? AppColors.success
+                                                  : AppColors.warning,
+                                          size: 22,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+
+                                      // تفاصيل الفاتورة والمورد — تم إضافة Expanded لمنع تجاوز النصوص
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    invoice.invoiceNumber,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 15,
+                                                      decoration: invoice.isCancelled ? TextDecoration.lineThrough : null,
+                                                      color: invoice.isCancelled ? AppColors.textMuted : AppColors.textPrimary,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.surfaceHighlight,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    invoice.paymentType.arabicLabel,
+                                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              'المورد: ${invoice.supplierName ?? "غير محدد"}',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w500,
+                                                color: invoice.isCancelled ? AppColors.textMuted : AppColors.textPrimary,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'التاريخ: ${AppFormatters.date(invoice.invoiceDate)}',
+                                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // المبالغ المالية
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            AppFormatters.currency(invoice.total),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: invoice.isCancelled ? AppColors.textMuted : AppColors.primary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            invoice.isCancelled
+                                                ? 'ملغاة'
                                                 : invoice.isPaidInFull
-                                                    ? Colors.green
-                                                    : Colors.orange.shade900,
+                                                    ? 'مسددة بالكامل'
+                                                    : 'متبقي: ${AppFormatters.currency(invoice.remainingAmount)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                              color: invoice.isCancelled
+                                                  ? AppColors.textMuted
+                                                  : invoice.isPaidInFull
+                                                      ? AppColors.success
+                                                      : AppColors.warning,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: () async {
-                                      await Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => PurchaseInvoiceDetailsScreen(
-                                            invoiceId: invoice.id,
-                                            purchasesRepository: widget.repository,
-                                          ),
-                                        ),
-                                      );
-                                      _loadInvoices();
-                                    },
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 );
                               },

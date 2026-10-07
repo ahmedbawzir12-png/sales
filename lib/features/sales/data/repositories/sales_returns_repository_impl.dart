@@ -15,17 +15,25 @@ import '../../domain/repositories/sales_returns_repository.dart';
 import '../models/sales_return_item_model.dart';
 import '../models/sales_return_model.dart';
 
+import '../../../cash/domain/entities/cash_flow_direction.dart';
+import '../../../cash/domain/entities/cash_transaction.dart';
+import '../../../cash/domain/entities/cash_transaction_type.dart';
+import '../../../cash/domain/repositories/cashbox_repository.dart';
+import '../../../cash/data/repositories/cashbox_repository_impl.dart';
+
 class SalesReturnsRepositoryImpl implements SalesReturnsRepository {
   final DatabaseService _dbService;
   final StockMovementsRepositoryImpl _stockMovementsRepo;
   final CustomerLedgerRepositoryImpl _customerLedgerRepo;
   final FinancialFlowIntegrationService _financialService;
+  final CashboxRepository _cashboxRepo;
 
   SalesReturnsRepositoryImpl({
     DatabaseService? dbService,
     StockMovementsRepositoryImpl? stockMovementsRepo,
     CustomerLedgerRepositoryImpl? customerLedgerRepo,
     FinancialFlowIntegrationService? financialService,
+    CashboxRepository? cashboxRepo,
   })  : _dbService = dbService ?? DatabaseService.instance,
         _stockMovementsRepo = stockMovementsRepo ??
             StockMovementsRepositoryImpl(
@@ -34,7 +42,10 @@ class SalesReturnsRepositoryImpl implements SalesReturnsRepository {
             CustomerLedgerRepositoryImpl(
                 dbService: dbService ?? DatabaseService.instance),
         _financialService =
-            financialService ?? FinancialFlowIntegrationService.instance;
+            financialService ?? FinancialFlowIntegrationService.instance,
+        _cashboxRepo = cashboxRepo ??
+            CashboxRepositoryImpl(
+                dbService: dbService ?? DatabaseService.instance);
 
   @override
   Future<String> generateNextReturnNumber([DatabaseExecutor? executor]) async {
@@ -418,8 +429,25 @@ class SalesReturnsRepositoryImpl implements SalesReturnsRepository {
           );
         }
 
-        // 7. تجهيز حركة الصندوق إن وجد استرداد نقدي (Cash Out Integration Point)
+        // 7. تسجيل حركة الصندوق (Cash Out) إن وجد استرداد نقدي داخل نفس المعاملة الذرية
+        // يتم التحقق التلقائي من كفاية رصيد الصندوق لمنع الرصيد السالب
         if (refundCash > 0) {
+          await _cashboxRepo.recordCashTransactionWithExecutor(
+            txn,
+            CashTransaction(
+              id: 0,
+              type: CashTransactionType.salesReturnRefund,
+              direction: CashFlowDirection.cashOut,
+              amount: refundCash,
+              transactionDate: salesReturn.returnDate,
+              referenceType: 'sales_return',
+              referenceId: returnId,
+              description: 'صرف استرداد نقدي لمرتجع مبيعات رقم $returnNumber',
+              notes: salesReturn.notes,
+              createdAt: now,
+            ),
+          );
+
           _financialService.dispatchFlow(
             FinancialFlowRecord(
               type: FinancialFlowType.cashOut,

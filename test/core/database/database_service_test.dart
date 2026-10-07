@@ -23,14 +23,15 @@ void main() {
       final version = await db.getVersion();
       expect(version, equals(DatabaseConstants.databaseVersion));
 
-      // التحقق من جدول الهجرات (الهجرة 1 و 2 و 3 و 4 و 5 مطبقة)
+      // التحقق من جدول الهجرات (الهجرة 1 و 2 و 3 و 4 و 5 و 6 مطبقة)
       final migrations = await db.query(DatabaseConstants.tableMigrations);
-      expect(migrations.length, equals(5));
+      expect(migrations.length, equals(6));
       expect(migrations.first['version'], equals(1));
       expect(migrations[1]['version'], equals(2));
       expect(migrations[2]['version'], equals(3));
       expect(migrations[3]['version'], equals(4));
       expect(migrations[4]['version'], equals(5));
+      expect(migrations[5]['version'], equals(6));
 
       // التحقق من وجود جداول العملاء والمبيعات والديون
       final customers = await db.query(DatabaseConstants.tableCustomers);
@@ -73,7 +74,7 @@ void main() {
         });
 
         final migrations = await db.query(DatabaseConstants.tableMigrations);
-        expect(migrations.length, equals(5));
+        expect(migrations.length, equals(6));
 
         final records = await db.query(DatabaseConstants.tableStoreProfile);
         expect(records.first.containsKey('email'), isTrue);

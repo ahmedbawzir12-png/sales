@@ -10,21 +10,32 @@ import '../../domain/repositories/supplier_payments_repository.dart';
 import '../models/supplier_payment_model.dart';
 import 'supplier_ledger_repository_impl.dart';
 
+import '../../../cash/domain/entities/cash_flow_direction.dart';
+import '../../../cash/domain/entities/cash_transaction.dart';
+import '../../../cash/domain/entities/cash_transaction_type.dart';
+import '../../../cash/domain/repositories/cashbox_repository.dart';
+import '../../../cash/data/repositories/cashbox_repository_impl.dart';
+
 class SupplierPaymentsRepositoryImpl implements SupplierPaymentsRepository {
   final DatabaseService _dbService;
   final SupplierLedgerRepositoryImpl _ledgerRepo;
   final FinancialFlowIntegrationService _financialService;
+  final CashboxRepository _cashboxRepo;
 
   SupplierPaymentsRepositoryImpl({
     DatabaseService? dbService,
     SupplierLedgerRepositoryImpl? ledgerRepo,
     FinancialFlowIntegrationService? financialService,
+    CashboxRepository? cashboxRepo,
   })  : _dbService = dbService ?? DatabaseService.instance,
         _ledgerRepo = ledgerRepo ??
             SupplierLedgerRepositoryImpl(
                 dbService: dbService ?? DatabaseService.instance),
         _financialService =
-            financialService ?? FinancialFlowIntegrationService.instance;
+            financialService ?? FinancialFlowIntegrationService.instance,
+        _cashboxRepo = cashboxRepo ??
+            CashboxRepositoryImpl(
+                dbService: dbService ?? DatabaseService.instance);
 
   @override
   Future<String> generateNextPaymentNumber([DatabaseExecutor? executor]) async {
@@ -202,7 +213,25 @@ class SupplierPaymentsRepositoryImpl implements SupplierPaymentsRepository {
           whereArgs: [payment.supplierId],
         );
 
-        // 7. تجهيز وإشعار التدفق المالي للصندوق (Cash Out Integration Point)
+        // 7. تسجيل حركة الصندوق النقدية (Cash Out) داخل نفس المعاملة الذرية
+        // يتم التحقق التلقائي من أن رصيد الصندوق يكفي لصرف الدفعة لمنع الرصيد السالب
+        await _cashboxRepo.recordCashTransactionWithExecutor(
+          txn,
+          CashTransaction(
+            id: 0,
+            type: CashTransactionType.supplierPayment,
+            direction: CashFlowDirection.cashOut,
+            amount: payment.amount,
+            transactionDate: payment.paymentDate,
+            referenceType: 'supplier_payment',
+            referenceId: paymentId,
+            description: 'سداد دفعة للمورد $supplierName (سند رقم $paymentNumber)',
+            notes: payment.notes,
+            createdAt: now,
+          ),
+        );
+
+        // 8. إشعار التدفق المالي التكاملي
         _financialService.dispatchFlow(
           FinancialFlowRecord(
             type: FinancialFlowType.cashOut,

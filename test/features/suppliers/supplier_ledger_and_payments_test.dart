@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/features/cash/data/repositories/cashbox_repository_impl.dart';
 import 'package:sales/features/suppliers/data/repositories/supplier_ledger_repository_impl.dart';
 import 'package:sales/features/suppliers/data/repositories/supplier_payments_repository_impl.dart';
 import 'package:sales/features/suppliers/data/repositories/suppliers_repository_impl.dart';
@@ -31,6 +32,8 @@ void main() {
       suppliersRepo = SuppliersRepositoryImpl(databaseService: dbService);
       ledgerRepo = SupplierLedgerRepositoryImpl(dbService: dbService);
       paymentsRepo = SupplierPaymentsRepositoryImpl(dbService: dbService);
+      final cashboxRepo = CashboxRepositoryImpl(dbService: dbService);
+      await cashboxRepo.setOpeningBalance(10000000);
     });
 
     test('تسجيل شراء آجل في أستاذ المورد يزيد دين المورد تلقائياً في السجل والملخص', () async {

@@ -14,17 +14,25 @@ import '../../domain/repositories/purchase_returns_repository.dart';
 import '../models/purchase_return_item_model.dart';
 import '../models/purchase_return_model.dart';
 
+import '../../../cash/domain/entities/cash_flow_direction.dart';
+import '../../../cash/domain/entities/cash_transaction.dart';
+import '../../../cash/domain/entities/cash_transaction_type.dart';
+import '../../../cash/domain/repositories/cashbox_repository.dart';
+import '../../../cash/data/repositories/cashbox_repository_impl.dart';
+
 class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
   final DatabaseService _dbService;
   final StockMovementsRepositoryImpl _stockMovementsRepo;
   final SupplierLedgerRepositoryImpl _supplierLedgerRepo;
   final FinancialFlowIntegrationService _financialService;
+  final CashboxRepository _cashboxRepo;
 
   PurchaseReturnsRepositoryImpl({
     DatabaseService? dbService,
     StockMovementsRepositoryImpl? stockMovementsRepo,
     SupplierLedgerRepositoryImpl? supplierLedgerRepo,
     FinancialFlowIntegrationService? financialService,
+    CashboxRepository? cashboxRepo,
   })  : _dbService = dbService ?? DatabaseService.instance,
         _stockMovementsRepo = stockMovementsRepo ??
             StockMovementsRepositoryImpl(
@@ -33,7 +41,10 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
             SupplierLedgerRepositoryImpl(
                 dbService: dbService ?? DatabaseService.instance),
         _financialService =
-            financialService ?? FinancialFlowIntegrationService.instance;
+            financialService ?? FinancialFlowIntegrationService.instance,
+        _cashboxRepo = cashboxRepo ??
+            CashboxRepositoryImpl(
+                dbService: dbService ?? DatabaseService.instance);
 
   @override
   Future<String> generateNextReturnNumber([DatabaseExecutor? executor]) async {
@@ -411,8 +422,24 @@ class PurchaseReturnsRepositoryImpl implements PurchaseReturnsRepository {
           );
         }
 
-        // 7. تجهيز حركة الصندوق إن وجد استرداد نقدي من المورد (Cash In Integration Point)
+        // 7. تسجيل حركة الصندوق (Cash In) إن وجد استرداد نقدي من المورد داخل نفس المعاملة الذرية
         if (refundCash > 0) {
+          await _cashboxRepo.recordCashTransactionWithExecutor(
+            txn,
+            CashTransaction(
+              id: 0,
+              type: CashTransactionType.purchaseReturnRefund,
+              direction: CashFlowDirection.cashIn,
+              amount: refundCash,
+              transactionDate: purchaseReturn.returnDate,
+              referenceType: 'purchase_return',
+              referenceId: returnId,
+              description: 'قبض استرداد نقدي من مورد لمرتجع مشتريات رقم $returnNumber',
+              notes: purchaseReturn.notes,
+              createdAt: now,
+            ),
+          );
+
           _financialService.dispatchFlow(
             FinancialFlowRecord(
               type: FinancialFlowType.cashIn,

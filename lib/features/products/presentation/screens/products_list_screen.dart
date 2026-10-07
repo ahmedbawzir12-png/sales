@@ -4,6 +4,7 @@ import 'package:sales/core/presentation/constants/app_constants.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/core/presentation/widgets/app_card.dart';
 import '../../data/repositories/categories_repository_impl.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../domain/entities/category.dart';
@@ -232,37 +233,42 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
   }
 
   Widget _buildTopSummaryBar() {
+    // تم استخدام IntrinsicHeight لضمان تمدد البطاقات رأسياً بالتساوي دون تحديد أي ارتفاع ثابت
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildSummaryPill(
-              label: 'إجمالي الأصناف',
-              value: '${_products.length}',
-              color: AppColors.primary,
-              icon: Icons.inventory_2_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: InkWell(
-              onTap: () {
-                setState(() => _onlyLowStock = !_onlyLowStock);
-                _loadProducts();
-              },
-              borderRadius: BorderRadius.circular(8),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // تم استخدام Expanded لتقسيم المساحة المتاحة بالتساوي وبشكل متجاوب تماماً
+            Expanded(
               child: _buildSummaryPill(
-                label: 'نواقص المخزون',
-                value: '$_lowStockCount',
-                color: _lowStockCount > 0 ? AppColors.warning : AppColors.success,
-                icon: Icons.warning_amber_rounded,
-                isSelected: _onlyLowStock,
+                label: 'إجمالي الأصناف',
+                value: '${_products.length}',
+                color: AppColors.primary,
+                icon: Icons.inventory_2_outlined,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  setState(() => _onlyLowStock = !_onlyLowStock);
+                  _loadProducts();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: _buildSummaryPill(
+                  label: 'نواقص المخزون',
+                  value: '$_lowStockCount',
+                  color: _lowStockCount > 0 ? AppColors.warning : AppColors.success,
+                  icon: Icons.warning_amber_rounded,
+                  isSelected: _onlyLowStock,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -274,11 +280,12 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     required IconData icon,
     bool isSelected = false,
   }) {
+    // بطاقة مؤشرات متكيفة ديناميكياً بدون أي أبعاد ثابتة، مع مسافة داخلية مريحة 14×12 وحواف 12px
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), // مساحة داخلية مريحة
       decoration: BoxDecoration(
-        color: isSelected ? color.withAlpha(40) : AppColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(8),
+        color: isSelected ? color.withAlpha(25) : AppColors.surfaceElevated,
+        borderRadius: BorderRadius.circular(12), // حواف دائرية ناعمة
         border: Border.all(
           color: isSelected ? color : AppColors.border,
           width: isSelected ? 1.5 : 1,
@@ -286,16 +293,31 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withAlpha(25),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          // تم إضافة Expanded لمنع تجاوز النصوص على الشاشات الصغيرة
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label, style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
                 Text(
                   value,
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -398,153 +420,174 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     final isLow = product.isLowStock;
     final isOutOfStock = product.currentStock <= 0;
 
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () async {
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailsScreen(productId: product.id),
-            ),
-          );
-          _loadProducts();
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
+    // تم استبدال الـ Card الثابت بـ AppCard المتجاوب والسلس (Fluid)
+    // مسافة داخلية مريحة 16px وحواف ناعمة 14px بدون أي أبعاد ثابتة
+    return AppCard(
+      padding: const EdgeInsets.all(16), // مسافة داخلية متساوية ومريحة تمنع اختناق المحتوى
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsScreen(productId: product.id),
+          ),
+        );
+        _loadProducts();
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              // تم إضافة Expanded لمنع تجاوز النصوص على أي قياس شاشة
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: product.isActive ? AppColors.textPrimary : AppColors.textMuted,
+                        decoration: product.isActive ? null : TextDecoration.lineThrough,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text(
-                          product.name,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: product.isActive ? AppColors.textPrimary : AppColors.textMuted,
-                            decoration: product.isActive ? null : TextDecoration.lineThrough,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceHighlight,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            product.categoryName ?? 'تصنيف',
+                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceHighlight,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                product.categoryName ?? 'تصنيف',
-                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'سعر البيع: ${AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency)}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
-                            ),
-                          ],
+                        Text(
+                          'سعر البيع: ${AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-
-                  // مؤشر حالة المخزون
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isOutOfStock
-                          ? AppColors.errorContainer
-                          : isLow
-                              ? AppColors.warningContainer
-                              : AppColors.successContainer,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '${product.currentStock} ${product.unitSymbol ?? ""}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: isOutOfStock
-                                ? AppColors.error
-                                : isLow
-                                    ? AppColors.warning
-                                    : AppColors.success,
-                          ),
-                        ),
-                        if (isOutOfStock)
-                          const Text('نفد', style: TextStyle(fontSize: 10, color: AppColors.error))
-                        else if (isLow)
-                          const Text('منخفض', style: TextStyle(fontSize: 10, color: AppColors.warning))
-                        else
-                          const Text('متوفر', style: TextStyle(fontSize: 10, color: AppColors.success)),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const Divider(height: 20),
+              const SizedBox(width: 12),
 
-              // شريط الإجراءات السريعة
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.tune_outlined, size: 16),
-                    label: const Text('تسوية جرد', style: TextStyle(fontSize: 12)),
-                    onPressed: () async {
-                      final result = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => StockInventoryScreen(initialProductId: product.id),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadProducts();
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'تعديل بيانات المنتج',
-                    icon: const Icon(Icons.edit_outlined, size: 18),
-                    onPressed: () async {
-                      final result = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => AddEditProductScreen(product: product),
-                        ),
-                      );
-                      if (result == true) {
-                        _loadProducts();
-                      }
-                    },
-                  ),
-                  IconButton(
-                    tooltip: product.isActive ? 'تعطيل المنتج' : 'تفعيل المنتج',
-                    icon: Icon(
-                      product.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
-                      size: 18,
-                      color: product.isActive ? AppColors.textMuted : AppColors.success,
+              // مؤشر حالة المخزون — حاوية متكيفة ديناميكياً بحسب النص والأرقام
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isOutOfStock
+                      ? AppColors.errorContainer
+                      : isLow
+                          ? AppColors.warningContainer
+                          : AppColors.successContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${product.currentStock} ${product.unitSymbol ?? ""}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isOutOfStock
+                            ? AppColors.error
+                            : isLow
+                                ? AppColors.warning
+                                : AppColors.success,
+                      ),
                     ),
-                    onPressed: () => _toggleProductStatus(product),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      isOutOfStock
+                          ? 'نفد'
+                          : isLow
+                              ? 'منخفض'
+                              : 'متوفر',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isOutOfStock
+                            ? AppColors.error
+                            : isLow
+                                ? AppColors.warning
+                                : AppColors.success,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+
+          // شريط الإجراءات السريعة — أزرار بمساحة ضغط مريحة (>=48px)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.tune_outlined, size: 18),
+                label: const Text('تسوية جرد', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48), // مساحة ضغط لا تقل عن 48px
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => StockInventoryScreen(initialProductId: product.id),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadProducts();
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'تعديل بيانات المنتج',
+                icon: const Icon(Icons.edit_outlined, size: 20),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // مساحة ضغط لا تقل عن 48px
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AddEditProductScreen(product: product),
+                    ),
+                  );
+                  if (result == true) {
+                    _loadProducts();
+                  }
+                },
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: product.isActive ? 'تعطيل المنتج' : 'تفعيل المنتج',
+                icon: Icon(
+                  product.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
+                  size: 20,
+                  color: product.isActive ? AppColors.textMuted : AppColors.success,
+                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // مساحة ضغط لا تقل عن 48px
+                onPressed: () => _toggleProductStatus(product),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

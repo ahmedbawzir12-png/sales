@@ -7,6 +7,8 @@ enum AppDataChangeType {
   purchases,
   customers,
   suppliers,
+  cashbox,
+  expenses,
   tabSelection,
   all,
 }
@@ -55,6 +57,18 @@ class AppDataNotifier extends ChangeNotifier {
   /// إشعار بتغير بيانات الموردين، ديونهم، وسندات الصرف
   void notifySuppliersChanged([dynamic payload]) {
     _lastEvent = AppDataChangeEvent(type: AppDataChangeType.suppliers, payload: payload);
+    notifyListeners();
+  }
+
+  /// إشعار بتغير حركات ورصيد الصندوق (Cashbox)
+  void notifyCashboxChanged([dynamic payload]) {
+    _lastEvent = AppDataChangeEvent(type: AppDataChangeType.cashbox, payload: payload);
+    notifyListeners();
+  }
+
+  /// إشعار بتغير المصروفات وتصنيفاتها
+  void notifyExpensesChanged([dynamic payload]) {
+    _lastEvent = AppDataChangeEvent(type: AppDataChangeType.expenses, payload: payload);
     notifyListeners();
   }
 

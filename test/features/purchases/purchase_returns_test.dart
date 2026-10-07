@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/features/cash/data/repositories/cashbox_repository_impl.dart';
 import 'package:sales/features/products/data/repositories/products_repository_impl.dart';
 import 'package:sales/features/products/domain/entities/product.dart';
 import 'package:sales/features/purchases/data/repositories/purchase_returns_repository_impl.dart';
@@ -41,6 +42,7 @@ void main() {
       ledgerRepo = SupplierLedgerRepositoryImpl(dbService: dbService);
       purchasesRepo = PurchasesRepositoryImpl(databaseService: dbService);
       returnsRepo = PurchaseReturnsRepositoryImpl(dbService: dbService);
+      await CashboxRepositoryImpl(dbService: dbService).setOpeningBalance(10000000);
     });
 
     test('مرتجع مشتريات نقدي: يخصم المخزون، يجهز استرداد نقدي، ولا ينشئ حركة دين على المورد', () async {

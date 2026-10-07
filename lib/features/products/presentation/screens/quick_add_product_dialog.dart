@@ -227,8 +227,12 @@ class _QuickAddProductDialogState extends State<QuickAddProductDialog> {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 480,
+      // تم استبدال العرض الثابت بـ ConstrainedBox لضمان التجاوب والتكيف المرن
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 480,
+          minWidth: 280,
+        ),
         child: _isLoadingLookups
             ? const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),

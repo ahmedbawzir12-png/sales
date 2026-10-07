@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/widgets/app_card.dart';
 import '../../data/repositories/customers_repository_impl.dart';
 import '../../domain/entities/customer.dart';
 import '../../domain/repositories/customers_repository.dart';
@@ -116,35 +117,63 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
       ),
       body: Column(
         children: [
-          // 1. شريط إحصائي أعلى الشاشة
+          // 1. شريط إحصائي أعلى الشاشة — تصميم متجاوب وسلس بـ IntrinsicHeight
           Container(
+            color: AppColors.surface,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: Theme.of(context).colorScheme.primaryContainer.withAlpha(50),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(Icons.people_alt, color: AppColors.primary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'إجمالي العملاء: ${_customers.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+            child: IntrinsicHeight(
+              child: Row(
+                children: [
+                  // تم استخدام Expanded لتقسيم البطاقات الإحصائية والتكيف مع الشاشات
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
                       ),
-                    ],
-                  ),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.account_balance_wallet, color: AppColors.error, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'إجمالي ديون العملاء: ${AppFormatters.currency(_totalDebt)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.error),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.people_alt, color: AppColors.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'إجمالي العملاء: ${_customers.length}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceElevated,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet, color: AppColors.error, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'ديون العملاء: ${AppFormatters.currency(_totalDebt)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.error, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -215,75 +244,96 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                 final customer = _customers[index];
                                 final hasDebt = customer.currentBalance > 0;
 
-                                return Card(
-                                  elevation: 0.5,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    side: BorderSide(
-                                      color: hasDebt
-                                          ? AppColors.error.withAlpha(80)
-                                          : AppColors.border,
-                                    ),
-                                  ),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor: hasDebt
-                                          ? AppColors.errorContainer
-                                          : AppColors.primaryContainer,
-                                      child: Icon(
-                                        customer.isWalkInGeneralCustomer
-                                            ? Icons.storefront
-                                            : Icons.person,
-                                        color: hasDebt ? AppColors.error : AppColors.primary,
+                                // تم استبدال Card بـ AppCard المتجاوب مع مسافة 16px وحواف ناعمة 14px وبدون أبعاد ثابتة
+                                return AppCard(
+                                  padding: const EdgeInsets.all(16), // مسافة داخلية مريحة لا تقل عن 16px
+                                  backgroundColor: customer.isActive ? AppColors.surface : AppColors.surfaceElevated,
+                                  borderColor: hasDebt ? AppColors.error.withAlpha(90) : AppColors.border,
+                                  onTap: () async {
+                                    await Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => CustomerDetailsScreen(
+                                          customerId: customer.id,
+                                          repository: _repository,
+                                        ),
                                       ),
-                                    ),
-                                    title: Text(
-                                      customer.name,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: customer.isActive
-                                            ? AppColors.textPrimary
-                                            : AppColors.textMuted,
+                                    );
+                                    _loadCustomers();
+                                  },
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      // أيقونة العميل الدائرية
+                                      Container(
+                                        width: 44,
+                                        height: 44,
+                                        decoration: BoxDecoration(
+                                          color: hasDebt ? AppColors.errorContainer : AppColors.primaryContainer,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Icon(
+                                          customer.isWalkInGeneralCustomer ? Icons.storefront : Icons.person,
+                                          color: hasDebt ? AppColors.error : AppColors.primary,
+                                          size: 22,
+                                        ),
                                       ),
-                                    ),
-                                    subtitle: Text(
-                                      customer.phone != null && customer.phone!.isNotEmpty
-                                          ? customer.phone!
-                                          : (customer.notes ?? 'لا توجد ملاحظات'),
-                                      style: const TextStyle(fontSize: 13),
-                                    ),
-                                    trailing: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          AppFormatters.currency(customer.currentBalance),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: hasDebt ? AppColors.error : AppColors.success,
-                                          ),
+                                      const SizedBox(width: 14),
+
+                                      // تفاصيل العميل — تم استخدام Expanded لضمان عدم تجاوز النصوص
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              customer.name,
+                                              style: TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                                color: customer.isActive ? AppColors.textPrimary : AppColors.textMuted,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              customer.phone != null && customer.phone!.isNotEmpty
+                                                  ? customer.phone!
+                                                  : (customer.notes ?? 'لا توجد ملاحظات'),
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: customer.isActive ? AppColors.textSecondary : AppColors.textMuted,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ],
                                         ),
-                                        Text(
-                                          hasDebt ? 'مستحق للمحل' : 'لا توجد ديون',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: hasDebt ? AppColors.error : AppColors.textSecondary,
+                                      ),
+                                      const SizedBox(width: 12),
+
+                                      // بيانات الرصيد والديون
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            AppFormatters.currency(customer.currentBalance),
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15,
+                                              color: hasDebt ? AppColors.error : AppColors.success,
+                                            ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    onTap: () async {
-                                      await Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => CustomerDetailsScreen(
-                                            customerId: customer.id,
-                                            repository: _repository,
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            hasDebt ? 'مستحق للمحل' : 'لا توجد ديون',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              color: hasDebt ? AppColors.error : AppColors.textSecondary,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                      _loadCustomers();
-                                    },
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 );
                               },

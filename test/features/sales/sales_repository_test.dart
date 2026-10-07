@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/features/cash/data/repositories/cashbox_repository_impl.dart';
 import 'package:sales/features/customers/data/repositories/customers_repository_impl.dart';
 import 'package:sales/features/products/data/repositories/products_repository_impl.dart';
 import 'package:sales/features/products/data/repositories/stock_movements_repository_impl.dart';
@@ -39,6 +40,7 @@ void main() {
     customersRepo = CustomersRepositoryImpl(dbService: dbService);
     stockMovementsRepo = StockMovementsRepositoryImpl(databaseService: dbService);
     purchasesRepo = PurchasesRepositoryImpl(databaseService: dbService);
+    await CashboxRepositoryImpl(dbService: dbService).setOpeningBalance(10000000);
   });
 
   tearDown(() async {

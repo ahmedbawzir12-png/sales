@@ -127,8 +127,12 @@ class _AddEditCustomerDialogState extends State<AddEditCustomerDialog> {
           Text(_isEditing ? 'تعديل بيانات العميل' : 'إضافة عميل جديد'),
         ],
       ),
-      content: SizedBox(
-        width: 460,
+      // تم استبدال العرض الثابت بـ ConstrainedBox للتكيف المرن مع أحجام الشاشات المختلفة
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: 480,
+          minWidth: 280,
+        ),
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
