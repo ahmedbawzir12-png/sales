@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/domain/errors/error_handler.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../../sales/data/repositories/sales_repository_impl.dart';
@@ -14,6 +16,7 @@ import '../../domain/repositories/customer_payments_repository.dart';
 import '../../domain/repositories/customers_repository.dart';
 import 'add_edit_customer_dialog.dart';
 import 'record_customer_payment_dialog.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 
 /// شاشة تفاصيل العميل وإحصائيات مبيعاته وكشف حسابه والديون المستحقة
 class CustomerDetailsScreen extends StatefulWidget {
@@ -30,9 +33,10 @@ class CustomerDetailsScreen extends StatefulWidget {
     CustomerPaymentsRepository? paymentsRepository,
     CustomerLedgerRepository? ledgerRepository,
     SalesRepository? salesRepository,
-  })  : paymentsRepository = paymentsRepository ?? CustomerPaymentsRepositoryImpl(),
-        ledgerRepository = ledgerRepository ?? CustomerLedgerRepositoryImpl(),
-        salesRepository = salesRepository ?? SalesRepositoryImpl();
+  }) : paymentsRepository =
+           paymentsRepository ?? CustomerPaymentsRepositoryImpl(),
+       ledgerRepository = ledgerRepository ?? CustomerLedgerRepositoryImpl(),
+       salesRepository = salesRepository ?? SalesRepositoryImpl();
 
   @override
   State<CustomerDetailsScreen> createState() => _CustomerDetailsScreenState();
@@ -68,10 +72,18 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
     });
 
     try {
-      final customer = await widget.repository.getCustomerById(widget.customerId);
-      final stats = await widget.repository.getCustomerStatistics(widget.customerId);
-      final ledger = await widget.ledgerRepository.getLedgerEntries(widget.customerId);
-      final invoices = await widget.salesRepository.getInvoices(customerId: widget.customerId);
+      final customer = await widget.repository.getCustomerById(
+        widget.customerId,
+      );
+      final stats = await widget.repository.getCustomerStatistics(
+        widget.customerId,
+      );
+      final ledger = await widget.ledgerRepository.getLedgerEntries(
+        widget.customerId,
+      );
+      final invoices = await widget.salesRepository.getInvoices(
+        customerId: widget.customerId,
+      );
 
       if (mounted) {
         setState(() {
@@ -95,8 +107,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   Future<void> _recordPayment() async {
     if (_customer == null) return;
     if (_customer!.currentBalance <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد ديون مستحقة على هذا العميل لسدادها')),
+      AppToast.showWarning(
+        context,
+        'لا توجد ديون مستحقة على هذا العميل لسدادها',
       );
       return;
     }
@@ -111,12 +124,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
     if (payment != null) {
       _loadCustomerDetails();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'تم تسجيل الدفعة بنجاح بمبلغ ${Formatters.formatCurrency(payment.amount)}'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل الدفعة بنجاح بمبلغ ${Formatters.formatCurrency(payment.amount)}',
         );
       }
     }
@@ -143,7 +153,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: Text('$actionText العميل'),
-        content: Text('هل أنت متأكد من رغبتك في $actionText حساب العميل "${_customer!.name}"؟'),
+        content: Text(
+          'هل أنت متأكد من رغبتك في $actionText حساب العميل "${_customer!.name}"؟',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -166,14 +178,55 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         await widget.repository.toggleCustomerActive(_customer!.id, newStatus);
         _loadCustomerDetails();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('تم $actionText العميل بنجاح')),
-          );
+          if (newStatus) {
+            AppToast.showSave(context, 'تم تفعيل العميل بنجاح');
+          } else {
+            AppToast.showWarning(context, 'تم تعطيل العميل بنجاح');
+          }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('فشل تغيير حالة العميل')),
+          AppToast.showError(context, 'فشل تغيير حالة العميل');
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteCustomer() async {
+    if (_customer == null) return;
+    if (_customer!.isWalkInGeneralCustomer) {
+      AppToast.showWarning(
+        context,
+        'لا يمكن حذف العميل العام / الافتراضي',
+      );
+      return;
+    }
+
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف العميل',
+      message:
+          'هل أنت متأكد من حذف العميل "${_customer!.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك فواتير مبيعات أو حركات حسابية سابقة مسجلة باسمه حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+
+    if (confirmed == true) {
+      try {
+        await widget.repository.deleteCustomer(_customer!.id);
+        if (mounted) {
+          AppToast.showDelete(
+            context,
+            'تم حذف العميل "${_customer!.name}" بنجاح',
+          );
+          Navigator.of(context).pop(true);
+        }
+      } catch (e, st) {
+        final failure = ErrorHandler.handle(e, st);
+        if (mounted) {
+          AppToast.showError(
+            context,
+            failure.userFriendlyMessage,
           );
         }
       }
@@ -204,72 +257,80 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
               onPressed: _editCustomer,
             ),
             IconButton(
-              icon: Icon(_customer!.isActive ? Icons.block : Icons.check_circle_outline),
+              icon: Icon(
+                _customer!.isActive ? Icons.block : Icons.check_circle_outline,
+              ),
               tooltip: _customer!.isActive ? 'تعطيل العميل' : 'تنشيط العميل',
               onPressed: _toggleStatus,
             ),
+            if (!_customer!.isWalkInGeneralCustomer)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                tooltip: 'حذف العميل',
+                onPressed: _deleteCustomer,
+              ),
           ],
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _customer == null
-                  ? const Center(child: Text('العميل غير موجود'))
-                  : RefreshIndicator(
-                      onRefresh: _loadCustomerDetails,
-                      child: NestedScrollView(
-                        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // 1. بطاقة معلومات العميل
-                                  _buildCustomerProfileCard(),
-                                  const SizedBox(height: 16),
+          ? Center(child: Text(_errorMessage!))
+          : _customer == null
+          ? const Center(child: Text('العميل غير موجود'))
+          : RefreshIndicator(
+              onRefresh: _loadCustomerDetails,
+              child: NestedScrollView(
+                headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // 1. بطاقة معلومات العميل
+                          _buildCustomerProfileCard(),
+                          const SizedBox(height: 16),
 
-                                  // 2. بطاقات المؤشرات المالية
-                                  _buildFinancialSummaryCards(),
-                                  const SizedBox(height: 16),
-                                ],
-                              ),
-                            ),
-                          ),
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _SliverAppBarDelegate(
-                              TabBar(
-                                controller: _tabController,
-                                labelColor: AppColors.primary,
-                                unselectedLabelColor: Colors.grey.shade600,
-                                indicatorColor: AppColors.primary,
-                                indicatorWeight: 3,
-                                tabs: [
-                                  Tab(
-                                    icon: const Icon(Icons.account_balance_wallet_outlined),
-                                    text: 'كشف الحساب وسجل الحركات (${_ledgerEntries.length})',
-                                  ),
-                                  Tab(
-                                    icon: const Icon(Icons.receipt_long_outlined),
-                                    text: 'فواتير المبيعات (${_invoices.length})',
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          // 2. بطاقات المؤشرات المالية
+                          _buildFinancialSummaryCards(),
+                          const SizedBox(height: 16),
                         ],
-                        body: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildLedgerTab(),
-                            _buildInvoicesTab(),
-                          ],
-                        ),
                       ),
                     ),
+                  ),
+                  SliverPersistentHeader(
+                    pinned: true,
+                    delegate: _SliverAppBarDelegate(
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: AppColors.primary,
+                        unselectedLabelColor: Colors.grey.shade600,
+                        indicatorColor: AppColors.primary,
+                        indicatorWeight: 3,
+                        tabs: [
+                          Tab(
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            text:
+                                'كشف الحساب وسجل الحركات (${_ledgerEntries.length})',
+                          ),
+                          Tab(
+                            icon: const Icon(Icons.receipt_long_outlined),
+                            text: 'فواتير المبيعات (${_invoices.length})',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                body: TabBarView(
+                  controller: _tabController,
+                  children: [_buildLedgerTab(), _buildInvoicesTab()],
+                ),
+              ),
+            ),
     );
   }
 
@@ -286,7 +347,11 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColors.primaryContainer,
-                  child: const Icon(Icons.person, size: 32, color: AppColors.primary),
+                  child: const Icon(
+                    Icons.person,
+                    size: 32,
+                    color: AppColors.primary,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -296,14 +361,17 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                       Text(
                         _customer!.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: _customer!.isActive
                                   ? AppColors.successContainer
@@ -313,7 +381,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                             child: Text(
                               _customer!.isActive ? 'عميل نشط' : 'عميل معطل',
                               style: TextStyle(
-                                color: _customer!.isActive ? AppColors.success : AppColors.error,
+                                color: _customer!.isActive
+                                    ? AppColors.success
+                                    : AppColors.error,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -321,9 +391,19 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                           ),
                           if (_customer!.phone != null) ...[
                             const SizedBox(width: 12),
-                            Icon(Icons.phone, size: 14, color: Colors.grey.shade600),
+                            Icon(
+                              Icons.phone,
+                              size: 14,
+                              color: Colors.grey.shade600,
+                            ),
                             const SizedBox(width: 4),
-                            Text(_customer!.phone!, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)),
+                            Text(
+                              _customer!.phone!,
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ],
                       ),
@@ -332,9 +412,14 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 ),
               ],
             ),
-            if (_customer!.address != null && _customer!.address!.isNotEmpty) ...[
+            if (_customer!.address != null &&
+                _customer!.address!.isNotEmpty) ...[
               const Divider(height: 20),
-              _buildInfoRow(Icons.location_on_outlined, 'العنوان', _customer!.address!),
+              _buildInfoRow(
+                Icons.location_on_outlined,
+                'العنوان',
+                _customer!.address!,
+              ),
             ],
             if (_customer!.notes != null && _customer!.notes!.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -356,7 +441,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
               child: _buildStatCard(
                 title: 'رصيد الدين المستحق',
                 value: Formatters.formatCurrency(_customer!.currentBalance),
-                color: _customer!.currentBalance > 0 ? AppColors.error : AppColors.success,
+                color: _customer!.currentBalance > 0
+                    ? AppColors.error
+                    : AppColors.success,
                 icon: Icons.account_balance_wallet_outlined,
               ),
             ),
@@ -418,7 +505,10 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
             children: [
               Text(
                 entry.transactionType.arabicLabel,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
               Text(
                 '${isDebit ? "+" : "-"}${Formatters.formatCurrency(entry.amount)}',
@@ -478,7 +568,9 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                   : Colors.green.shade50,
               child: Icon(
                 invoice.isCredit ? Icons.credit_card : Icons.money,
-                color: invoice.isCredit ? Colors.orange.shade800 : Colors.green.shade800,
+                color: invoice.isCredit
+                    ? Colors.orange.shade800
+                    : Colors.green.shade800,
               ),
             ),
             title: Row(
@@ -526,7 +618,14 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       children: [
         Icon(icon, size: 16, color: Colors.grey.shade600),
         const SizedBox(width: 8),
-        Text('$label: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade700, fontSize: 13)),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade700,
+            fontSize: 13,
+          ),
+        ),
         Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
       ],
     );
@@ -557,7 +656,11 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 Expanded(
                   child: Text(
                     title,
-                    style: TextStyle(fontSize: 13, color: color, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: color,
+                      fontWeight: FontWeight.w600,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -589,7 +692,11 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       child: _tabBar,

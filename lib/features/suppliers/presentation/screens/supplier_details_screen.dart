@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/presentation/utils/formatters.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../../purchases/data/repositories/purchases_repository_impl.dart';
 import '../../../purchases/domain/entities/purchase_invoice.dart';
 import '../../../purchases/domain/repositories/purchases_repository.dart';
@@ -92,9 +94,7 @@ class _SupplierDetailsScreenState extends State<SupplierDetailsScreen>
   Future<void> _recordPayment() async {
     if (_supplier == null) return;
     if (_supplier!.currentBalance <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا توجد مستحقات أو ديون مسجلة لهذا المورد لسدادها')),
-      );
+      AppToast.showWarning(context, 'لا توجد مستحقات أو ديون مسجلة لهذا المورد لسدادها');
       return;
     }
 
@@ -108,12 +108,9 @@ class _SupplierDetailsScreenState extends State<SupplierDetailsScreen>
     if (payment != null) {
       _loadSupplierData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'تم تسجيل الدفعة بنجاح بمبلغ ${Formatters.formatCurrency(payment.amount)}'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل الدفعة بنجاح بمبلغ ${Formatters.formatCurrency(payment.amount)}',
         );
       }
     }
@@ -161,18 +158,39 @@ class _SupplierDetailsScreenState extends State<SupplierDetailsScreen>
         await widget.suppliersRepository.setSupplierActive(_supplier!.id, newStatus);
         _loadSupplierData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(newStatus ? 'تم تفعيل المورد بنجاح' : 'تم تعطيل المورد بنجاح'),
-              backgroundColor: newStatus ? Colors.green : Colors.orange,
-            ),
-          );
+          if (newStatus) {
+            AppToast.showSave(context, 'تم تفعيل المورد بنجاح');
+          } else {
+            AppToast.showWarning(context, 'تم تعطيل المورد بنجاح');
+          }
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('فشل تحديث حالة المورد: $e'), backgroundColor: Colors.red),
-          );
+          AppToast.showError(context, 'فشل تحديث حالة المورد: $e');
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteSupplier() async {
+    if (_supplier == null) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف المورد نهائياً',
+      message: 'هل أنت متأكد من حذف المورد "${_supplier!.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك فواتير مشتريات أو حركات حسابية سابقة مسجلة باسمه حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await widget.suppliersRepository.deleteSupplier(_supplier!.id);
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف المورد "${_supplier!.name}" بنجاح');
+          Navigator.of(context).pop(true);
+        }
+      } catch (e) {
+        if (mounted) {
+          AppToast.showError(context, e.toString());
         }
       }
     }
@@ -233,6 +251,11 @@ class _SupplierDetailsScreenState extends State<SupplierDetailsScreen>
             icon: Icon(supplier.isActive ? Icons.block : Icons.check_circle_outline),
             tooltip: supplier.isActive ? 'تعطيل المورد' : 'تفعيل المورد',
             onPressed: _toggleActiveStatus,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            tooltip: 'حذف المورد نهائياً',
+            onPressed: _deleteSupplier,
           ),
         ],
       ),

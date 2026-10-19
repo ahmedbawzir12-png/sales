@@ -609,4 +609,99 @@ class SalesRepositoryImpl implements SalesRepository {
       throw DatabaseException('فشل استرجاع المؤشرات الإجمالية للمبيعات', e);
     }
   }
+
+  @override
+  Future<void> deleteInvoice(int id) async {
+    try {
+      final db = await _dbService.database;
+
+      await db.transaction((txn) async {
+        // 1. التحقق من وجود الفاتورة
+        final invRows = await txn.query(
+          DatabaseConstants.tableSalesInvoices,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (invRows.isEmpty) {
+          throw const NotFoundException('فاتورة المبيعات المراد حذفها غير موجودة');
+        }
+        final invData = invRows.first;
+        final currentStatus = invData['status'] as String;
+        final invoiceNumber = invData['invoice_number'] as String;
+        final customerId = invData['customer_id'] as int?;
+        final remainingAmount = (invData['remaining_amount'] as num).toInt();
+
+        // 2. إذا كانت الفاتورة مكتملة وليست ملغاة، نعيد المخزون ونسوي الأستاذ والصندوق
+        if (currentStatus != SalesInvoiceStatus.cancelled.name) {
+          final itemRows = await txn.query(
+            DatabaseConstants.tableSalesInvoiceItems,
+            where: 'sales_invoice_id = ?',
+            whereArgs: [id],
+          );
+
+          for (final row in itemRows) {
+            final productId = (row['product_id'] as num).toInt();
+            final quantity = (row['quantity'] as num).toDouble();
+
+            await _stockMovementsRepo.recordMovementWithExecutor(
+              txn,
+              productId: productId,
+              type: StockMovementType.saleReturn,
+              quantity: quantity,
+              reason: 'إلغاء وحذف فاتورة مبيعات رقم $invoiceNumber',
+              reference: invoiceNumber,
+              notes: 'إرجاع تلقائي للمخزون إثر حذف الفاتورة',
+            );
+          }
+
+          final now = DateTime.now();
+
+          if (remainingAmount > 0 && customerId != null) {
+            await _customerLedgerRepo.recordEntryWithExecutor(
+              txn,
+              CustomerLedgerEntry(
+                id: 0,
+                customerId: customerId,
+                transactionType: CustomerLedgerTransactionType.cancellation,
+                amount: remainingAmount,
+                transactionDate: now,
+                referenceType: 'sales_invoice',
+                referenceId: id,
+                notes: 'إلغاء أثر الدين لفاتورة المبيعات المحذوفة رقم $invoiceNumber',
+                createdAt: now,
+              ),
+            );
+          }
+
+          // حذف حركات الصندوق التابعة للفاتورة مباشرة
+          await txn.delete(
+            DatabaseConstants.tableCashTransactions,
+            where: 'reference_type = ? AND reference_id = ?',
+            whereArgs: ['sales_invoice', id],
+          );
+        }
+
+        // 3. حذف بنود الفاتورة وحذف الفاتورة نفسها
+        await txn.delete(
+          DatabaseConstants.tableSalesInvoiceItems,
+          where: 'sales_invoice_id = ?',
+          whereArgs: [id],
+        );
+
+        await txn.delete(
+          DatabaseConstants.tableSalesInvoices,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifyInventoryChanged();
+      AppDataNotifier.instance.notifySalesChanged();
+      AppDataNotifier.instance.notifyCustomersChanged();
+      AppDataNotifier.instance.notifyCashboxChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف فاتورة المبيعات: $e', e);
+    }
+  }
 }

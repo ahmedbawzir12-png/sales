@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import 'package:sales/features/purchases/domain/repositories/purchases_repository.dart';
@@ -107,6 +110,30 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
     }
   }
 
+  Future<void> _deleteSupplier(Supplier s) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف المورد',
+      message: 'هل أنت متأكد من حذف المورد "${s.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك فواتير مشتريات أو حركات حسابية سابقة مسجلة باسمه حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await widget.repository.deleteSupplier(s.id);
+        _loadSuppliers();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف المورد "${s.name}" بنجاح');
+        }
+      } catch (e, st) {
+        final failure = ErrorHandler.handle(e, st);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,6 +147,7 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'suppliers_fab',
         onPressed: _openAddSupplier,
@@ -238,7 +266,7 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
                         : RefreshIndicator(
                             onRefresh: _loadSuppliers,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
                               itemCount: _suppliers.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 6),
                               itemBuilder: (context, index) {
@@ -336,7 +364,14 @@ class _SuppliersListScreenState extends State<SuppliersListScreen> {
                                             color: AppColors.success,
                                           ),
                                         ),
-                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                        tooltip: 'حذف المورد نهائياً',
+                                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () => _deleteSupplier(s),
+                                      ),
+                                      const SizedBox(width: 4),
                                       const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
                                     ],
                                   ),

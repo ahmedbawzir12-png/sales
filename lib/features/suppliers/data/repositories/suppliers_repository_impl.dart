@@ -1,6 +1,7 @@
 import 'package:sales/core/data/constants/database_constants.dart';
 import 'package:sales/core/data/database/database_service.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import '../../domain/entities/supplier.dart';
 import '../../domain/repositories/suppliers_repository.dart';
 import '../models/supplier_model.dart';
@@ -10,10 +11,13 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
   final DatabaseService _databaseService;
 
   SuppliersRepositoryImpl({DatabaseService? databaseService})
-      : _databaseService = databaseService ?? DatabaseService.instance;
+    : _databaseService = databaseService ?? DatabaseService.instance;
 
   @override
-  Future<List<Supplier>> getSuppliers({String? searchQuery, bool? onlyActive}) async {
+  Future<List<Supplier>> getSuppliers({
+    String? searchQuery,
+    bool? onlyActive,
+  }) async {
     try {
       final db = await _databaseService.database;
 
@@ -31,7 +35,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
         whereClauses.add('is_active = 1');
       }
 
-      final whereString = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';
+      final whereString = whereClauses.isNotEmpty
+          ? 'WHERE ${whereClauses.join(' AND ')}'
+          : '';
 
       final results = await db.rawQuery('''
         SELECT 
@@ -66,7 +72,8 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
   Future<Supplier> getSupplierById(int id) async {
     try {
       final db = await _databaseService.database;
-      final results = await db.rawQuery('''
+      final results = await db.rawQuery(
+        '''
         SELECT 
           s.*,
           COALESCE((
@@ -82,7 +89,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
         FROM ${DatabaseConstants.tableSuppliers} s
         WHERE s.id = ?
         LIMIT 1
-      ''', [id]);
+      ''',
+        [id],
+      );
 
       if (results.isEmpty) {
         throw const NotFoundException('المورد المطلوب غير مسجل في النظام');
@@ -90,7 +99,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
 
       final row = results.first;
       final debt = (row['calculated_debt'] as num?)?.toInt() ?? 0;
-      return SupplierModel.fromMap(row).toEntity().copyWith(currentBalance: debt);
+      return SupplierModel.fromMap(
+        row,
+      ).toEntity().copyWith(currentBalance: debt);
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل استرجاع بيانات المورد', e);
@@ -101,7 +112,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
   Future<Supplier> createSupplier(Supplier supplier) async {
     final trimmedName = supplier.name.trim();
     if (trimmedName.isEmpty) {
-      throw const ValidationException('اسم المورد مطلوب ولا يمكن أن يكون فارغاً');
+      throw const ValidationException(
+        'اسم المورد مطلوب ولا يمكن أن يكون فارغاً',
+      );
     }
 
     try {
@@ -116,7 +129,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
       );
 
       if (existing.isNotEmpty) {
-        throw ValidationException('يوجد مورد مسجل بالفعل بنفس الاسم "$trimmedName"');
+        throw ValidationException(
+          'يوجد مورد مسجل بالفعل بنفس الاسم "$trimmedName"',
+        );
       }
 
       final now = DateTime.now().toIso8601String();
@@ -154,7 +169,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
   Future<void> updateSupplier(Supplier supplier) async {
     final trimmedName = supplier.name.trim();
     if (trimmedName.isEmpty) {
-      throw const ValidationException('اسم المورد مطلوب ولا يمكن أن يكون فارغاً');
+      throw const ValidationException(
+        'اسم المورد مطلوب ولا يمكن أن يكون فارغاً',
+      );
     }
 
     try {
@@ -169,7 +186,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
       );
 
       if (existing.isNotEmpty) {
-        throw ValidationException('يوجد مورد آخر مسجل بهذا الاسم "$trimmedName"');
+        throw ValidationException(
+          'يوجد مورد آخر مسجل بهذا الاسم "$trimmedName"',
+        );
       }
 
       final now = DateTime.now().toIso8601String();
@@ -189,7 +208,9 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
       );
 
       if (rowsAffected == 0) {
-        throw const NotFoundException('المورد المطلوب تعديله غير موجود في النظام');
+        throw const NotFoundException(
+          'المورد المطلوب تعديله غير موجود في النظام',
+        );
       }
     } catch (e) {
       if (e is AppException) rethrow;
@@ -205,10 +226,7 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
 
       final rowsAffected = await db.update(
         DatabaseConstants.tableSuppliers,
-        {
-          'is_active': isActive ? 1 : 0,
-          'updated_at': now,
-        },
+        {'is_active': isActive ? 1 : 0, 'updated_at': now},
         where: 'id = ?',
         whereArgs: [id],
       );
@@ -265,6 +283,62 @@ class SuppliersRepositoryImpl implements SuppliersRepository {
     } catch (e) {
       if (e is AppException) rethrow;
       throw DatabaseException('فشل احتساب عدد الموردين النشطين', e);
+    }
+  }
+
+  @override
+  Future<void> deleteSupplier(int id) async {
+    try {
+      final db = await _databaseService.database;
+
+      await db.transaction((txn) async {
+        // 1. التحقق من وجود المورد
+        final rows = await txn.query(
+          DatabaseConstants.tableSuppliers,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (rows.isEmpty) {
+          throw const NotFoundException('المورد المراد حذفه غير موجود');
+        }
+        final name = rows.first['name'] as String? ?? '';
+
+        // 2. التحقق من وجود فواتير مشتريات
+        final purchases = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tablePurchaseInvoices} WHERE supplier_id = ?',
+          [id],
+        );
+        final purchasesCount = (purchases.first['cnt'] as num?)?.toInt() ?? 0;
+        if (purchasesCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف المورد "$name" لوجود ($purchasesCount) فواتير مشتريات مسجلة باسمه للحفاظ على السجلات المحاسبية. يمكنك تعطيله بدلاً من ذلك.',
+          );
+        }
+
+        // 3. التحقق من وجود حركات في سجل الأستاذ
+        final ledger = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tableSupplierLedger} WHERE supplier_id = ?',
+          [id],
+        );
+        final ledgerCount = (ledger.first['cnt'] as num?)?.toInt() ?? 0;
+        if (ledgerCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف المورد "$name" لوجود حركات مالية مسجلة في كشف حسابه. يمكنك تعطيله بدلاً من ذلك.',
+          );
+        }
+
+        // 4. حذف المورد
+        await txn.delete(
+          DatabaseConstants.tableSuppliers,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifySuppliersChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف المورد: $e', e);
     }
   }
 }

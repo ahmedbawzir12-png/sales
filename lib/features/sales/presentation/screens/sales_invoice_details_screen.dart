@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/utils/formatters.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
+import '../../../../core/presentation/widgets/loading_state.dart';
+import '../../../../core/presentation/widgets/error_state.dart';
 import '../../data/repositories/sales_returns_repository_impl.dart';
 import '../../domain/entities/sales_invoice.dart';
 import '../../domain/entities/sales_invoice_item.dart';
 import '../../domain/entities/sales_payment_type.dart';
 import '../../domain/repositories/sales_repository.dart';
 import '../../domain/repositories/sales_returns_repository.dart';
+import '../widgets/printable_invoice_dialog.dart';
 import 'create_sales_return_dialog.dart';
 
 /// شاشة تفاصيل فاتورة المبيعات وإلغائها وإرجاع الأصناف
@@ -68,45 +73,20 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
     if (_invoice == null || _invoice!.isCancelled) return;
 
     final reasonController = TextEditingController();
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.error),
-            SizedBox(width: 8),
-            Text('تأكيد إلغاء الفاتورة'),
-          ],
+    final confirm = await ConfirmDialog.show(
+      context,
+      title: 'تأكيد إلغاء الفاتورة',
+      message: 'هل أنت متأكد من رغبتك في إلغاء الفاتورة رقم (${_invoice!.invoiceNumber})؟',
+      impactExplanation: 'سيؤدي إلغاء الفاتورة إلى إرجاع كميات جميع الأصناف المباعة إلى المخزون تلقائياً، وإلغاء أي ذمم مالية مترتبة عليها، وعكس حركة الصندوق إذا كانت الفاتورة نقدية.',
+      confirmLabel: 'تأكيد الإلغاء',
+      cancelLabel: 'تراجع',
+      isDestructive: true,
+      customContent: TextField(
+        controller: reasonController,
+        decoration: const InputDecoration(
+          labelText: 'سبب الإلغاء (اختياري)',
+          border: OutlineInputBorder(),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'هل أنت متأكد من رغبتك في إلغاء الفاتورة رقم (${_invoice!.invoiceNumber})؟\n\nسيتم إرجاع كميات جميع الأصناف المباعة إلى المخزون تلقائياً وإلغاء أي ذمم مالية مترتبة عليها.',
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                labelText: 'سبب الإلغاء (اختياري)',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('تراجع'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-            child: const Text('تأكيد الإلغاء'),
-          ),
-        ],
       ),
     );
 
@@ -119,20 +99,16 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
         );
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم إلغاء الفاتورة وإعادة الكميات للمخزون بنجاح'),
-              backgroundColor: AppColors.success,
-            ),
+          AppToast.showDelete(
+            context,
+            'تم إلغاء الفاتورة وإعادة الكميات للمخزون بنجاح',
           );
         }
         await _loadInvoice();
       } catch (e, s) {
         final failure = ErrorHandler.handle(e, s);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.userFriendlyMessage), backgroundColor: AppColors.error),
-          );
+          AppToast.showError(context, failure.userFriendlyMessage);
         }
       } finally {
         if (mounted) setState(() => _isCancelling = false);
@@ -153,12 +129,9 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
     if (result != null) {
       await _loadInvoice();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'تم إنشاء مرتجع المبيعات بنجاح برقم (${result.returnNumber}) وإرجاع الكميات للمخزون'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم إنشاء مرتجع المبيعات بنجاح برقم (${result.returnNumber}) وإرجاع الكميات للمخزون',
         );
       }
     }
@@ -222,12 +195,45 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
     return net > 0 ? net : 0;
   }
 
+  Future<void> _deleteInvoice() async {
+    if (_invoice == null) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف فاتورة المبيعات نهائياً',
+      message: 'هل أنت متأكد من حذف فاتورة المبيعات رقم (${_invoice!.invoiceNumber}) نهائياً؟\n\nتنبيه: سيتم استرجاع أصناف الفاتورة إلى المخزون تلقائياً، وإلغاء أي ذمة مسجلة على العميل، واسترداد المبلغ من الصندوق إن كان نقداً.',
+      confirmLabel: 'تأكيد الحذف النهائي',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await widget.repository.deleteInvoice(_invoice!.id);
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف الفاتورة رقم ${_invoice!.invoiceNumber} بنجاح');
+          Navigator.of(context).pop(true);
+        }
+      } catch (e, s) {
+        final failure = ErrorHandler.handle(e, s);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text(_invoice?.invoiceNumber ?? 'تفاصيل فاتورة البيع'),
         actions: [
+          if (_invoice != null) ...[
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'معاينة وطباعة الفاتورة',
+              onPressed: () => PrintableInvoiceDialog.show(context, invoice: _invoice!),
+            ),
+            const SizedBox(width: 4),
+          ],
           if (_invoice != null && !_invoice!.isCancelled) ...[
             ElevatedButton.icon(
               onPressed: _createReturn,
@@ -239,7 +245,15 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
+          ],
+          if (_invoice != null) ...[
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              tooltip: 'حذف الفاتورة نهائياً',
+              onPressed: _deleteInvoice,
+            ),
+            const SizedBox(width: 4),
           ],
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -249,11 +263,11 @@ class _SalesInvoiceDetailsScreenState extends State<SalesInvoiceDetailsScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingState(message: 'جارٍ جلب تفاصيل الفاتورة...')
           : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
+              ? ErrorState(message: _errorMessage!, onRetry: _loadInvoice)
               : _invoice == null
-                  ? const Center(child: Text('الفاتورة غير موجودة'))
+                  ? const ErrorState(message: 'الفاتورة غير موجودة أو تم حذفها')
                   : RefreshIndicator(
                       onRefresh: _loadInvoice,
                       child: ListView(

@@ -42,4 +42,7 @@ abstract class SalesRepository {
     DateTime? fromDate,
     DateTime? toDate,
   });
+
+  /// حذف فاتورة المبيعات نهائياً مع تسوية المخزون والحسابات المرتبطة
+  Future<void> deleteInvoice(int id);
 }

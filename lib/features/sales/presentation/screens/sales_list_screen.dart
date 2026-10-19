@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
+import '../../../../core/presentation/widgets/empty_state.dart';
+import '../../../../core/presentation/widgets/loading_state.dart';
+import '../../../../core/presentation/widgets/error_state.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../../../core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/sales_repository_impl.dart';
 import '../../domain/entities/sales_invoice.dart';
@@ -107,6 +112,30 @@ class _SalesListScreenState extends State<SalesListScreen> {
     _loadInvoices();
   }
 
+  Future<void> _deleteInvoice(SalesInvoice invoice) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف فاتورة المبيعات',
+      message: 'هل أنت متأكد من حذف فاتورة المبيعات رقم (${invoice.invoiceNumber}) نهائياً؟\n\nتنبيه: سيتم استرجاع أصناف الفاتورة إلى المخزون تلقائياً، وإلغاء أثر الدين من حساب العميل، واسترداد المبلغ من الصندوق إن كان نقداً.',
+      confirmLabel: 'تأكيد الحذف النهائي',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _repository.deleteInvoice(invoice.id);
+        _loadInvoices();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف الفاتورة رقم ${invoice.invoiceNumber} بنجاح');
+        }
+      } catch (e, s) {
+        final failure = ErrorHandler.handle(e, s);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -120,6 +149,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'sales_fab',
         onPressed: _openNewSale,
@@ -248,20 +278,23 @@ class _SalesListScreenState extends State<SalesListScreen> {
           // 3. جدول وقائمة الفواتير
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const LoadingState(message: 'جارٍ جلب فواتير المبيعات...')
                 : _errorMessage != null
-                    ? Center(child: Text(_errorMessage!))
+                    ? ErrorState(message: _errorMessage!, onRetry: _loadInvoices)
                     : _invoices.isEmpty
-                        ? const Center(
-                            child: Text(
-                              'لا توجد فواتير مبيعات مطابقة لمعايير البحث',
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
+                        ? EmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'لا توجد فواتير مبيعات',
+                            description: _searchController.text.isNotEmpty
+                                ? 'لم يتم العثور على أي فاتورة تطابق عبارة البحث "${_searchController.text.trim()}"'
+                                : 'ابدأ أول عملية بيع من زر "عملية بيع جديدة"',
+                            actionLabel: _searchController.text.isNotEmpty ? null : 'عملية بيع جديدة',
+                            onAction: _searchController.text.isNotEmpty ? null : _openNewSale,
                           )
                         : RefreshIndicator(
                             onRefresh: _loadInvoices,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.fromLTRB(12, 6, 12, 100),
                               itemCount: _invoices.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -399,6 +432,14 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                               ),
                                             ),
                                         ],
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                        tooltip: 'حذف الفاتورة نهائياً',
+                                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () => _deleteInvoice(invoice),
                                       ),
                                     ],
                                   ),

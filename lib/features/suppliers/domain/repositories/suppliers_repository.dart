@@ -22,4 +22,7 @@ abstract class SuppliersRepository {
 
   /// عدد الموردين النشطين
   Future<int> getActiveSuppliersCount();
+
+  /// حذف المورد نهائياً إذا لم تكن له فواتير مشتريات أو حركات حسابية
+  Future<void> deleteSupplier(int id);
 }

@@ -41,6 +41,9 @@ class MockSalesRepository implements SalesRepository {
 
   @override
   Future<Map<String, dynamic>> getSalesSummaryMetrics({DateTime? fromDate, DateTime? toDate}) async => {};
+
+  @override
+  Future<void> deleteInvoice(int id) async {}
 }
 
 class MockSalesReturnsRepository implements SalesReturnsRepository {

@@ -4,10 +4,10 @@ import '../entities/customer.dart';
 abstract class CustomersRepository {
   /// استرجاع قائمة العملاء مع خيارات الفلترة بالنشاط والبحث بالاسم أو الهاتف
   Future<List<Customer>> getCustomers({bool? onlyActive, String? searchQuery});
-
+  
   /// استرجاع عميل معين بالمعرف
   Future<Customer> getCustomerById(int id);
-
+  
   /// إضافة عميل جديد
   Future<int> createCustomer(Customer customer);
 
@@ -22,4 +22,7 @@ abstract class CustomersRepository {
 
   /// استرجاع إحصائيات مبيعات العميل (عدد الفواتير، إجمالي المبيعات، إجمالي المدفوع، المتبقي)
   Future<Map<String, dynamic>> getCustomerStatistics(int customerId);
+
+  /// حذف العميل نهائياً إذا لم تكن له فواتير مبيعات أو حركات حسابية مسجلة
+  Future<void> deleteCustomer(int id);
 }

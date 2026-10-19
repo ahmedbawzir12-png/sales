@@ -155,4 +155,28 @@ class CategoriesRepositoryImpl implements CategoriesRepository {
       throw DatabaseException('فشل حساب المنتجات المرتبطة بالتصنيف', e);
     }
   }
+
+  @override
+  Future<void> deleteCategory(int id) async {
+    try {
+      final count = await getProductsCountByCategory(id);
+      if (count > 0) {
+        throw ValidationException(
+          'لا يمكن حذف هذا التصنيف لأنه مرتبط بـ $count منتجات. يرجى نقل المنتجات لتصنيف آخر أولاً.',
+        );
+      }
+      final db = await _databaseService.database;
+      final rowsAffected = await db.delete(
+        DatabaseConstants.tableCategories,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (rowsAffected == 0) {
+        throw const NotFoundException('التصنيف المراد حذفه غير موجود');
+      }
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف التصنيف: $e', e);
+    }
+  }
 }

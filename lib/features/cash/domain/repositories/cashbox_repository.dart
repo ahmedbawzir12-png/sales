@@ -55,4 +55,7 @@ abstract class CashboxRepository {
     String? description,
     String? notes,
   });
+
+  /// حذف حركة نقدية من الصندوق وتحديث القيود التابعة والتحقق من سلامة الرصيد
+  Future<void> deleteTransaction(int id);
 }

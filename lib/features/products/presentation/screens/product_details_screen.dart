@@ -3,8 +3,10 @@ import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/constants/app_constants.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../data/repositories/stock_movements_repository_impl.dart';
 import '../../domain/entities/product.dart';
@@ -103,9 +105,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     } catch (e, s) {
       final failure = ErrorHandler.handle(e, s);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.userFriendlyMessage), backgroundColor: AppColors.error),
-        );
+        AppToast.showError(context, failure.userFriendlyMessage);
+      }
+    }
+  }
+
+  Future<void> _deleteProduct() async {
+    if (_product == null) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف المنتج',
+      message: 'هل أنت متأكد من حذف المنتج "${_product!.name}" نهائياً؟\n\nتنبيه: سيتم حذف بيانات المنتج وسجلاته التأسيسية. لن يُسمح بالحذف إذا كانت هناك فواتير مبيعات أو مشتريات مسجلة له حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _productsRepo.deleteProduct(_product!.id);
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف المنتج "${_product!.name}" بنجاح');
+          Navigator.of(context).pop(true);
+        }
+      } catch (e, s) {
+        final failure = ErrorHandler.handle(e, s);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
       }
     }
   }
@@ -140,6 +165,11 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 color: product.isActive ? AppColors.warning : AppColors.success,
               ),
               onPressed: _toggleProductStatus,
+            ),
+            IconButton(
+              tooltip: 'حذف المنتج نهائياً',
+              icon: const Icon(Icons.delete_outline, color: AppColors.error),
+              onPressed: _deleteProduct,
             ),
           ],
         ],

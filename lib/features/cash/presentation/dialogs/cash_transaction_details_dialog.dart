@@ -7,16 +7,25 @@ import '../../domain/entities/cash_transaction.dart';
 /// نافذة تفاصيل ومصدر حركة الصندوق
 class CashTransactionDetailsDialog extends StatelessWidget {
   final CashTransaction transaction;
+  final VoidCallback? onDelete;
 
   const CashTransactionDetailsDialog({
     super.key,
     required this.transaction,
+    this.onDelete,
   });
 
-  static void show(BuildContext context, CashTransaction transaction) {
-    showDialog(
+  static Future<void> show(
+    BuildContext context,
+    CashTransaction transaction, {
+    VoidCallback? onDelete,
+  }) async {
+    await showDialog(
       context: context,
-      builder: (context) => CashTransactionDetailsDialog(transaction: transaction),
+      builder: (context) => CashTransactionDetailsDialog(
+        transaction: transaction,
+        onDelete: onDelete,
+      ),
     );
   }
 
@@ -137,6 +146,15 @@ class CashTransactionDetailsDialog extends StatelessWidget {
         ),
       ),
       actions: [
+        if (onDelete != null)
+          TextButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              onDelete!();
+            },
+            icon: const Icon(Icons.delete_outline, color: AppColors.error),
+            label: const Text('حذف الحركة', style: TextStyle(color: AppColors.error)),
+          ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('إغلاق'),

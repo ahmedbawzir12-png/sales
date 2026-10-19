@@ -275,4 +275,66 @@ class CustomersRepositoryImpl implements CustomersRepository {
       throw DatabaseException('فشل استرجاع إحصائيات مبيعات العميل رقم ($customerId)', e);
     }
   }
+
+  @override
+  Future<void> deleteCustomer(int id) async {
+    try {
+      final db = await _dbService.database;
+
+      await db.transaction((txn) async {
+        // 1. التحقق من وجود العميل
+        final rows = await txn.query(
+          DatabaseConstants.tableCustomers,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (rows.isEmpty) {
+          throw const NotFoundException('العميل المراد حذفه غير موجود');
+        }
+        final customerData = rows.first;
+        final name = customerData['name'] as String? ?? '';
+        final isWalkIn = (customerData['is_walk_in_general_customer'] as int? ?? 0) == 1;
+
+        if (isWalkIn) {
+          throw const ValidationException('لا يمكن حذف الزبون العام الافتراضي الخاص بالمبيعات السريعة.');
+        }
+
+        // 2. التحقق من وجود فواتير مبيعات
+        final sales = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tableSalesInvoices} WHERE customer_id = ?',
+          [id],
+        );
+        final salesCount = (sales.first['cnt'] as num?)?.toInt() ?? 0;
+        if (salesCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف العميل "$name" لوجود ($salesCount) فواتير مبيعات مسجلة باسمه. يمكنك تعطيل حسابه بدلاً من ذلك.',
+          );
+        }
+
+        // 3. التحقق من وجود حركات في سجل الأستاذ
+        final ledger = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tableCustomerLedger} WHERE customer_id = ?',
+          [id],
+        );
+        final ledgerCount = (ledger.first['cnt'] as num?)?.toInt() ?? 0;
+        if (ledgerCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف العميل "$name" لوجود حركات مالية مسجلة في كشف حسابه. يمكنك تعطيل حسابه بدلاً من ذلك.',
+          );
+        }
+
+        // 4. حذف العميل
+        await txn.delete(
+          DatabaseConstants.tableCustomers,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifyCustomersChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف العميل: $e', e);
+    }
+  }
 }

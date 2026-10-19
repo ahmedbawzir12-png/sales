@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import 'package:sales/features/purchases/data/repositories/purchase_returns_repository_impl.dart';
 import 'package:sales/features/purchases/data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
@@ -133,11 +135,9 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
           reason: reasonController.text.trim(),
         );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('تم إلغاء الفاتورة وعكس أثر المخزون والدين بنجاح'),
-              backgroundColor: Colors.green,
-            ),
+          AppToast.showDelete(
+            context,
+            'تم إلغاء الفاتورة وعكس أثر المخزون والدين بنجاح',
           );
           _loadInvoiceDetails();
         }
@@ -159,9 +159,7 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('حدث خطأ أثناء إلغاء الفاتورة: $e'), backgroundColor: Colors.red),
-          );
+          AppToast.showError(context, 'حدث خطأ أثناء إلغاء الفاتورة: $e');
         }
       }
     }
@@ -181,13 +179,34 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
     if (result != null) {
       _loadInvoiceDetails();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'تم إنشاء مرتجع المشتريات بنجاح برقم (${result.returnNumber}) وخصم الكميات من المخزون'),
-            backgroundColor: Colors.green,
-          ),
+        AppToast.showSave(
+          context,
+          'تم إنشاء مرتجع المشتريات بنجاح برقم (${result.returnNumber}) وخصم الكميات من المخزون',
         );
+      }
+    }
+  }
+
+  Future<void> _deleteInvoice() async {
+    if (_invoice == null) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف فاتورة المشتريات نهائياً',
+      message: 'هل أنت متأكد من حذف فاتورة المشتريات رقم (${_invoice!.invoiceNumber}) نهائياً؟\n\nتنبيه: سيتم خصم الكميات من المخزون، وعكس أثر الدين في كشف حساب المورد، واسترداد المبلغ إلى الصندوق إن كان نقداً. لن يُسمح بالحذف إذا كان المخزون الحالي لا يكفي لخصم الكميات.',
+      confirmLabel: 'تأكيد الحذف النهائي',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await widget.purchasesRepository.deletePurchaseInvoice(_invoice!.id);
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف الفاتورة رقم ${_invoice!.invoiceNumber} بنجاح');
+          Navigator.of(context).pop(true);
+        }
+      } catch (e) {
+        if (mounted) {
+          AppToast.showError(context, e.toString());
+        }
       }
     }
   }
@@ -238,11 +257,17 @@ class _PurchaseInvoiceDetailsScreenState extends State<PurchaseInvoiceDetailsScr
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+              icon: const Icon(Icons.cancel_outlined, color: Colors.orange),
               tooltip: 'إلغاء الفاتورة',
               onPressed: _confirmCancelInvoice,
             ),
+            const SizedBox(width: 4),
           ],
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.red),
+            tooltip: 'حذف الفاتورة نهائياً',
+            onPressed: _deleteInvoice,
+          ),
         ],
       ),
       body: SingleChildScrollView(

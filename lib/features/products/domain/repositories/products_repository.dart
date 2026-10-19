@@ -28,4 +28,7 @@ abstract class ProductsRepository {
 
   /// عدد المنتجات التي بلغت أو نزلت عن حد إعادة الطلب
   Future<int> getLowStockCount();
+
+  /// حذف المنتج نهائياً إذا لم تكن هناك فواتير مبيعات أو مشتريات مرتبطة به
+  Future<void> deleteProduct(int id);
 }

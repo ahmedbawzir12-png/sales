@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../../cash/data/repositories/cashbox_repository_impl.dart';
 import '../../../cash/domain/repositories/cashbox_repository.dart';
 import '../../data/repositories/expenses_repository_impl.dart';
@@ -111,14 +113,34 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     if (result != null) {
       _loadData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل المصروف بقيمة ${Formatters.formatCurrency(result.amount)} وصرفه من الصندوق بنجاح',
-            ),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل المصروف بقيمة ${Formatters.formatCurrency(result.amount)} وصرفه من الصندوق بنجاح',
         );
+      }
+    }
+  }
+
+  Future<void> _deleteExpense(Expense expense) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف المصروف',
+      message: 'هل أنت متأكد من حذف هذا المصروف بقيمة (${Formatters.formatCurrency(expense.amount)}) نهائياً؟\n\nتنبيه: سيتم استرجاع مبلغ المصروف إلى رصيد الصندوق تلقائياً كإيداع تسوية.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _expensesRepo.deleteExpense(expense.id);
+        _loadData();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف المصروف واسترداد المبلغ إلى الصندوق بنجاح');
+        }
+      } catch (e, st) {
+        final failure = ErrorHandler.handle(e, st);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
       }
     }
   }
@@ -148,7 +170,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               onRefresh: () => _loadData(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -405,6 +427,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               fontWeight: FontWeight.bold,
               color: AppColors.error,
             ),
+          ),
+          const SizedBox(width: 6),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+            tooltip: 'حذف المصروف نهائياً',
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            padding: EdgeInsets.zero,
+            onPressed: () => _deleteExpense(expense),
           ),
         ],
       ),

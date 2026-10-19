@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/utils/formatters.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
 import '../../../../core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/customers_repository_impl.dart';
 import '../../domain/entities/customer.dart';
@@ -97,6 +100,30 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
     }
   }
 
+  Future<void> _deleteCustomer(Customer c) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف العميل',
+      message: 'هل أنت متأكد من حذف العميل "${c.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك فواتير مبيعات أو حركات حسابية سابقة مسجلة باسمه حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _repository.deleteCustomer(c.id);
+        _loadCustomers();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف العميل "${c.name}" بنجاح');
+        }
+      } catch (e, st) {
+        final failure = ErrorHandler.handle(e, st);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,6 +137,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'customers_fab',
         onPressed: _openAddCustomer,
@@ -209,7 +237,7 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                         : RefreshIndicator(
                             onRefresh: _loadCustomers,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
                               itemCount: _customers.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -305,6 +333,16 @@ class _CustomersListScreenState extends State<CustomersListScreen> {
                                           ),
                                         ],
                                       ),
+                                      if (!customer.isWalkInGeneralCustomer) ...[
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                          tooltip: 'حذف العميل نهائياً',
+                                          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () => _deleteCustomer(customer),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 );

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/constants/app_constants.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import '../../data/repositories/categories_repository_impl.dart';
 import '../../data/repositories/products_repository_impl.dart';
 import '../../data/repositories/units_repository_impl.dart';
@@ -130,11 +131,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedCategoryId == null) {
-      _showSnackbar('يرجى اختيار تصنيف للمنتج');
+      _showWarning('يرجى اختيار تصنيف للمنتج');
       return;
     }
     if (_selectedUnitId == null) {
-      _showSnackbar('يرجى اختيار وحدة قياس للمنتج');
+      _showWarning('يرجى اختيار وحدة قياس للمنتج');
       return;
     }
 
@@ -188,6 +189,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
       }
 
       if (mounted) {
+        AppToast.showSave(
+          context,
+          _isEditing ? 'تم تعديل بيانات المنتج بنجاح' : 'تم حفظ المنتج الجديد بنجاح',
+        );
         Navigator.of(context).pop(true);
       }
     } catch (e, s) {
@@ -201,10 +206,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     }
   }
 
-  void _showSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.error),
-    );
+  void _showWarning(String message) {
+    AppToast.showWarning(context, message);
   }
 
   @override

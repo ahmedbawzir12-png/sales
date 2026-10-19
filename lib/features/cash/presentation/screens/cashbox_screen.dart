@@ -2,23 +2,37 @@ import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/error_handler.dart';
 import '../../../../core/presentation/services/app_data_notifier.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../../core/presentation/widgets/app_card.dart';
 import '../../data/repositories/cashbox_repository_impl.dart';
 import '../../domain/entities/cash_flow_direction.dart';
 import '../../domain/entities/cash_transaction.dart';
+import '../../domain/entities/cash_transaction_type.dart';
 import '../../domain/entities/cashbox_summary.dart';
 import '../../domain/repositories/cashbox_repository.dart';
 import '../dialogs/cash_transaction_details_dialog.dart';
 import '../dialogs/record_other_deposit_dialog.dart';
 import '../dialogs/record_owner_withdrawal_dialog.dart';
 import '../dialogs/set_opening_balance_dialog.dart';
+import '../../../../core/presentation/widgets/confirm_dialog.dart';
+import '../../../sales/data/repositories/sales_repository_impl.dart';
+import '../../../sales/domain/repositories/sales_repository.dart';
+import '../../../purchases/data/repositories/purchases_repository_impl.dart';
+import '../../../purchases/domain/repositories/purchases_repository.dart';
 
 /// شاشة الصندوق المالي وحركات النقدية (Cashbox / Cash Register)
 class CashboxScreen extends StatefulWidget {
   final CashboxRepository? repository;
+  final SalesRepository? salesRepository;
+  final PurchasesRepository? purchasesRepository;
 
-  const CashboxScreen({super.key, this.repository});
+  const CashboxScreen({
+    super.key,
+    this.repository,
+    this.salesRepository,
+    this.purchasesRepository,
+  });
 
   @override
   State<CashboxScreen> createState() => _CashboxScreenState();
@@ -26,6 +40,8 @@ class CashboxScreen extends StatefulWidget {
 
 class _CashboxScreenState extends State<CashboxScreen> {
   late final CashboxRepository _repository;
+  late final SalesRepository _salesRepo;
+  late final PurchasesRepository _purchasesRepo;
 
   CashboxSummary? _summary;
   List<CashTransaction> _transactions = [];
@@ -38,6 +54,8 @@ class _CashboxScreenState extends State<CashboxScreen> {
   void initState() {
     super.initState();
     _repository = widget.repository ?? CashboxRepositoryImpl();
+    _salesRepo = widget.salesRepository ?? SalesRepositoryImpl();
+    _purchasesRepo = widget.purchasesRepository ?? PurchasesRepositoryImpl();
     _loadCashboxData();
     AppDataNotifier.instance.addListener(_onAppDataChanged);
   }
@@ -104,11 +122,9 @@ class _CashboxScreenState extends State<CashboxScreen> {
     if (result != null) {
       _loadCashboxData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('تم تسجيل الرصيد الافتتاحي للصندوق بنجاح'),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل الرصيد الافتتاحي للصندوق بنجاح',
         );
       }
     }
@@ -117,11 +133,9 @@ class _CashboxScreenState extends State<CashboxScreen> {
   Future<void> _onRecordOwnerWithdrawal() async {
     final currentBal = _summary?.currentBalance ?? 0;
     if (currentBal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('لا يمكن إجراء سحب، رصيد الصندوق الحالي صفر أو غير كافٍ'),
-          backgroundColor: AppColors.error,
-        ),
+      AppToast.showError(
+        context,
+        'لا يمكن إجراء سحب، رصيد الصندوق الحالي صفر أو غير كافٍ',
       );
       return;
     }
@@ -135,13 +149,9 @@ class _CashboxScreenState extends State<CashboxScreen> {
     if (result != null) {
       _loadCashboxData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل سحب نقدي لصاحب المحل بمبلغ ${Formatters.formatCurrency(result.amount)} بنجاح',
-            ),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل سحب نقدي لصاحب المحل بمبلغ ${Formatters.formatCurrency(result.amount)} بنجاح',
         );
       }
     }
@@ -156,13 +166,9 @@ class _CashboxScreenState extends State<CashboxScreen> {
     if (result != null) {
       _loadCashboxData();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'تم تسجيل إيداع نقدي إضافي بمبلغ ${Formatters.formatCurrency(result.amount)} بنجاح',
-            ),
-            backgroundColor: AppColors.success,
-          ),
+        AppToast.showSave(
+          context,
+          'تم تسجيل إيداع نقدي إضافي بمبلغ ${Formatters.formatCurrency(result.amount)} بنجاح',
         );
       }
     }
@@ -193,7 +199,7 @@ class _CashboxScreenState extends State<CashboxScreen> {
               onRefresh: () => _loadCashboxData(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -517,7 +523,11 @@ class _CashboxScreenState extends State<CashboxScreen> {
     return AppCard(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
-      onTap: () => CashTransactionDetailsDialog.show(context, tx),
+      onTap: () => CashTransactionDetailsDialog.show(
+        context,
+        tx,
+        onDelete: () => _deleteTransaction(tx),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -597,9 +607,150 @@ class _CashboxScreenState extends State<CashboxScreen> {
               color: color,
             ),
           ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+            tooltip: 'حذف حركة الصندوق',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            onPressed: () => _deleteTransaction(tx),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteTransaction(CashTransaction tx) async {
+    // 1. إذا كانت الحركة مسجلة من فاتورة مبيعات قائمة
+    if (tx.referenceType == 'sales_invoice' && tx.referenceId != null) {
+      bool invoiceExists = false;
+      try {
+        await _salesRepo.getInvoiceById(tx.referenceId!);
+        invoiceExists = true;
+      } catch (_) {
+        invoiceExists = false;
+      }
+
+      if (invoiceExists) {
+        if (!mounted) return;
+        final confirmed = await ConfirmDialog.show(
+          context,
+          title: 'حذف حركة مبيعات',
+          message:
+              'هذه الحركة ناتجة عن فاتورة مبيعات قائمة.\n\nتنبيه: حذفها سيؤدي لحذف فاتورة المبيعات بالكامل، واسترجاع الكميات المباعة إلى المخزون، وتسوية حساب العميل.\n\nهل ترغب في المتابعة؟',
+          confirmLabel: 'تأكيد وحذف الفاتورة',
+          isDestructive: true,
+        );
+        if (confirmed == true) {
+          try {
+            await _salesRepo.deleteInvoice(tx.referenceId!);
+            _loadCashboxData();
+            if (mounted) {
+              AppToast.showDelete(
+                context,
+                'تم حذف فاتورة المبيعات وحركة الصندوق بنجاح',
+              );
+            }
+          } catch (e, st) {
+            final failure = ErrorHandler.handle(e, st);
+            if (mounted) {
+              AppToast.showError(
+                context,
+                failure.userFriendlyMessage,
+              );
+            }
+          }
+        }
+        return;
+      }
+    }
+
+    // 2. إذا كانت الحركة مسجلة من فاتورة شراء قائمة
+    if (tx.referenceType == 'purchase_invoice' && tx.referenceId != null) {
+      bool purchaseExists = false;
+      try {
+        final invoices = await _purchasesRepo.getInvoices();
+        purchaseExists = invoices.any((inv) => inv.id == tx.referenceId);
+      } catch (_) {
+        purchaseExists = false;
+      }
+
+      if (purchaseExists) {
+        if (!mounted) return;
+        final confirmed = await ConfirmDialog.show(
+          context,
+          title: 'حذف حركة مشتريات',
+          message:
+              'هذه الحركة ناتجة عن فاتورة مشتريات قائمة.\n\nتنبيه: حذفها سيؤدي لحذف فاتورة الشراء بالكامل، وخصم البضاعة من المخزون، وتسوية حساب المورد.\n\nهل ترغب في المتابعة؟',
+          confirmLabel: 'تأكيد وحذف الفاتورة',
+          isDestructive: true,
+        );
+        if (confirmed == true) {
+          try {
+            await _purchasesRepo.deletePurchaseInvoice(tx.referenceId!);
+            _loadCashboxData();
+            if (mounted) {
+              AppToast.showDelete(
+                context,
+                'تم حذف فاتورة الشراء وحركة الصندوق بنجاح',
+              );
+            }
+          } catch (e, st) {
+            final failure = ErrorHandler.handle(e, st);
+            if (mounted) {
+              AppToast.showError(
+                context,
+                failure.userFriendlyMessage,
+              );
+            }
+          }
+        }
+        return;
+      }
+    }
+
+    // 3. الحركات المباشرة أو الحركات المتبقية وسندات القبض/الصرف
+    String message =
+        'هل أنت متأكد من حذف حركة "${tx.description.isNotEmpty ? tx.description : tx.type.arabicLabel}" بمبلغ ${Formatters.formatCurrency(tx.amount)}؟';
+    if (tx.referenceType == 'customer_payment') {
+      message += '\n\nتنبيه: سيتم إلغاء سند القبض وإعادة تسجيل المبلغ كدين مستحق على العميل.';
+    } else if (tx.referenceType == 'supplier_payment') {
+      message += '\n\nتنبيه: سيتم إلغاء سند الصرف وإعادة تسجيل المبلغ كدين مستحق للمورد.';
+    } else if (tx.referenceType == 'expense') {
+      message += '\n\nتنبيه: سيتم حذف قيد المصروف التابع لهذه الحركة.';
+    } else if (tx.type == CashTransactionType.openingBalance) {
+      message += '\n\nتنبيه: حذف الرصيد الافتتاحي سيتيح لك إعادة تسجيل رصيد افتتاحي جديد للصندوق.';
+    }
+
+    if (!mounted) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف حركة الصندوق',
+      message: message,
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+
+    if (confirmed == true) {
+      try {
+        await _repository.deleteTransaction(tx.id);
+        _loadCashboxData();
+        if (mounted) {
+          AppToast.showDelete(
+            context,
+            'تم حذف حركة الصندوق بنجاح',
+          );
+        }
+      } catch (e, st) {
+        final failure = ErrorHandler.handle(e, st);
+        if (mounted) {
+          AppToast.showError(
+            context,
+            failure.userFriendlyMessage,
+          );
+        }
+      }
+    }
   }
 
   Widget _buildEmptyState() {

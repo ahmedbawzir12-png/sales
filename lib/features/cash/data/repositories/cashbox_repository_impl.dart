@@ -404,4 +404,89 @@ class CashboxRepositoryImpl implements CashboxRepository {
 
     return await recordCashTransaction(transaction);
   }
+
+  @override
+  Future<void> deleteTransaction(int id) async {
+    try {
+      final db = await _dbService.database;
+      await db.transaction((txn) async {
+        final rows = await txn.query(
+          DatabaseConstants.tableCashTransactions,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        if (rows.isEmpty) {
+          throw const NotFoundException('حركة الصندوق المراد حذفها غير موجودة');
+        }
+
+        final row = rows.first;
+        final direction = row['direction'] as String;
+        final amount = (row['amount'] as num).toInt();
+        final refType = row['reference_type'] as String?;
+        final refId = row['reference_id'] as int?;
+
+        // إذا كانت حركة واردة (cashIn)، فإن حذفها سينقص الرصيد
+        // نتحقق من أن رصيد الصندوق لن يصبح سالباً (للحركات النقدية المباشرة)
+        if (direction == CashFlowDirection.cashIn.name &&
+            refType != 'sales_invoice' &&
+            refType != 'purchase_invoice' &&
+            refType != 'expense') {
+          final currentBalance = await getCashBalanceWithExecutor(txn);
+          if (currentBalance - amount < 0) {
+            throw ValidationException(
+              'لا يمكن حذف هذه الحركة لأن رصيد الصندوق الحالي ($currentBalance) لا يكفي لتغطية الخصم وسيصبح الرصيد سالباً.',
+            );
+          }
+        }
+
+        // تنظيف الكيانات التابعة إن وجدت
+        if (refType == 'expense' && refId != null) {
+          await txn.delete(
+            DatabaseConstants.tableExpenses,
+            where: 'id = ?',
+            whereArgs: [refId],
+          );
+        } else if (refType == 'customer_payment' && refId != null) {
+          await txn.delete(
+            DatabaseConstants.tableCustomerPayments,
+            where: 'id = ?',
+            whereArgs: [refId],
+          );
+          await txn.delete(
+            DatabaseConstants.tableCustomerLedger,
+            where: 'reference_type = ? AND reference_id = ?',
+            whereArgs: ['customer_payment', refId],
+          );
+        } else if (refType == 'supplier_payment' && refId != null) {
+          await txn.delete(
+            DatabaseConstants.tableSupplierPayments,
+            where: 'id = ?',
+            whereArgs: [refId],
+          );
+          await txn.delete(
+            DatabaseConstants.tableSupplierLedger,
+            where: 'reference_type = ? AND reference_id = ?',
+            whereArgs: ['supplier_payment', refId],
+          );
+        }
+
+        // حذف حركة الصندوق
+        await txn.delete(
+          DatabaseConstants.tableCashTransactions,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifyCashboxChanged();
+      AppDataNotifier.instance.notifyExpensesChanged();
+      AppDataNotifier.instance.notifyCustomersChanged();
+      AppDataNotifier.instance.notifySuppliersChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف حركة الصندوق: $e', e);
+    }
+  }
 }
+

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/purchases_repository_impl.dart';
 import '../../domain/entities/purchase_invoice.dart';
@@ -120,6 +123,30 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
         .fold<int>(0, (sum, inv) => sum + inv.remainingAmount);
   }
 
+  Future<void> _deleteInvoice(PurchaseInvoice invoice) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف فاتورة المشتريات',
+      message: 'هل أنت متأكد من حذف فاتورة المشتريات رقم (${invoice.invoiceNumber}) نهائياً؟\n\nتنبيه: سيتم خصم الكميات المشتراة من المخزون، وإلغاء أثر الدين من حساب المورد، واسترداد المبلغ إلى الصندوق إن كان نقداً. لن يُسمح بالحذف إذا كان المخزون الحالي لا يكفي لخصم الكميات.',
+      confirmLabel: 'تأكيد الحذف النهائي',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await widget.repository.deletePurchaseInvoice(invoice.id);
+        _loadInvoices();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف الفاتورة رقم ${invoice.invoiceNumber} بنجاح');
+        }
+      } catch (e, s) {
+        final failure = ErrorHandler.handle(e, s);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,6 +160,7 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'purchases_fab',
         onPressed: _openNewInvoice,
@@ -288,7 +316,7 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
                         : RefreshIndicator(
                             onRefresh: _loadInvoices,
                             child: ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.fromLTRB(12, 4, 12, 100),
                               itemCount: _invoices.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -428,6 +456,14 @@ class _PurchasesListScreenState extends State<PurchasesListScreen> {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                        tooltip: 'حذف الفاتورة نهائياً',
+                                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () => _deleteInvoice(invoice),
                                       ),
                                     ],
                                   ),

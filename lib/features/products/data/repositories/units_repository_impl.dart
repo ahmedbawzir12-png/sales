@@ -132,4 +132,28 @@ class UnitsRepositoryImpl implements UnitsRepository {
       throw DatabaseException('فشل حساب المنتجات المرتبطة بوحدة القياس', e);
     }
   }
+
+  @override
+  Future<void> deleteUnit(int id) async {
+    try {
+      final count = await getProductsCountByUnit(id);
+      if (count > 0) {
+        throw ValidationException(
+          'لا يمكن حذف وحدة القياس هذه لأنها مرتبطة بـ $count منتجات. يرجى تعديل وحدات تلك المنتجات أولاً.',
+        );
+      }
+      final db = await _databaseService.database;
+      final rowsAffected = await db.delete(
+        DatabaseConstants.tableUnits,
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      if (rowsAffected == 0) {
+        throw const NotFoundException('وحدة القياس المراد حذفها غير موجودة');
+      }
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف وحدة القياس: $e', e);
+    }
+  }
 }

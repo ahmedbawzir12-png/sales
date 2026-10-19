@@ -16,4 +16,7 @@ abstract class UnitsRepository {
 
   /// عدد المنتجات المرتبطة بوحدة القياس
   Future<int> getProductsCountByUnit(int unitId);
+
+  /// حذف وحدة القياس نهائياً إذا لم تكن مرتبطة بمنتجات
+  Future<void> deleteUnit(int id);
 }

@@ -41,4 +41,7 @@ abstract class PurchasesRepository {
   /// 4. عكس أثر الدين في رصيد المورد
   /// 5. تغيير حالة الفاتورة إلى ملغاة (cancelled)
   Future<void> cancelPurchaseInvoice(int invoiceId, {required String reason});
+
+  /// حذف فاتورة الشراء نهائياً مع تسوية المخزون وحساب المورد
+  Future<void> deletePurchaseInvoice(int invoiceId);
 }

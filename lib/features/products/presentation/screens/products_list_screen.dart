@@ -3,8 +3,10 @@ import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/constants/app_constants.dart';
 import 'package:sales/core/presentation/services/app_data_notifier.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/core/presentation/widgets/app_card.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import 'package:sales/core/presentation/widgets/primary_hero_card.dart';
 import '../../data/repositories/categories_repository_impl.dart';
 import '../../data/repositories/products_repository_impl.dart';
@@ -132,9 +134,31 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     } catch (e, s) {
       final failure = ErrorHandler.handle(e, s);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.userFriendlyMessage), backgroundColor: AppColors.error),
-        );
+        AppToast.showError(context, failure.userFriendlyMessage);
+      }
+    }
+  }
+
+  Future<void> _deleteProduct(Product product) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف المنتج',
+      message: 'هل أنت متأكد من حذف المنتج "${product.name}" نهائياً؟\n\nتنبيه: سيتم حذف بيانات المنتج وسجلاته التأسيسية. لن يُسمح بالحذف إذا كانت هناك فواتير مبيعات أو مشتريات مرتبطة به حفاظاً على الحسابات.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _productsRepo.deleteProduct(product.id);
+        _loadProducts();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف المنتج "${product.name}" بنجاح');
+        }
+      } catch (e, s) {
+        final failure = ErrorHandler.handle(e, s);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
       }
     }
   }
@@ -152,6 +176,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'products_fab',
         onPressed: () async {
@@ -220,7 +245,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                             ),
                           )
                         : ListView.separated(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                             itemCount: _products.length,
                             separatorBuilder: (context, index) => const SizedBox(height: 10),
                             itemBuilder: (context, index) {
@@ -527,6 +552,17 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                 ),
                 constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // مساحة ضغط لا تقل عن 48px
                 onPressed: () => _toggleProductStatus(product),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                tooltip: 'حذف المنتج نهائياً',
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: AppColors.error,
+                ),
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                onPressed: () => _deleteProduct(product),
               ),
             ],
           ),

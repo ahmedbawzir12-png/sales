@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import '../../data/repositories/units_repository_impl.dart';
 import '../../domain/entities/unit_of_measurement.dart';
 import '../../domain/repositories/units_repository.dart';
@@ -167,6 +169,30 @@ class _UnitsScreenState extends State<UnitsScreen> {
     );
   }
 
+  Future<void> _deleteUnit(UnitOfMeasurement unit) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف وحدة القياس',
+      message: 'هل أنت متأكد من حذف وحدة القياس "${unit.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك منتجات تستخدم وحدة القياس هذه.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _repository.deleteUnit(unit.id);
+        _loadUnits();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف وحدة القياس "${unit.name}" بنجاح');
+        }
+      } catch (e, stackTrace) {
+        final failure = ErrorHandler.handle(e, stackTrace);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -180,6 +206,7 @@ class _UnitsScreenState extends State<UnitsScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'units_fab',
         onPressed: () => _showAddEditDialog(),
@@ -205,7 +232,7 @@ class _UnitsScreenState extends State<UnitsScreen> {
               : _units.isEmpty
                   ? const Center(child: Text('لا توجد وحدات قياس مضافة'))
                   : ListView.separated(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                       itemCount: _units.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
@@ -228,10 +255,20 @@ class _UnitsScreenState extends State<UnitsScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text('الرمز: ${unit.symbol}'),
-                            trailing: IconButton(
-                              tooltip: 'تعديل',
-                              icon: const Icon(Icons.edit_outlined, size: 20),
-                              onPressed: () => _showAddEditDialog(unit),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  tooltip: 'تعديل',
+                                  icon: const Icon(Icons.edit_outlined, size: 20),
+                                  onPressed: () => _showAddEditDialog(unit),
+                                ),
+                                IconButton(
+                                  tooltip: 'حذف وحدة القياس نهائياً',
+                                  icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                  onPressed: () => _deleteUnit(unit),
+                                ),
+                              ],
                             ),
                           ),
                         );

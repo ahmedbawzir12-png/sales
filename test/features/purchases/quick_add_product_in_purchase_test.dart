@@ -40,6 +40,8 @@ class FakeCategoriesRepository implements CategoriesRepository {
   Future<void> setCategoryActive(int id, bool isActive) async {}
   @override
   Future<int> getProductsCountByCategory(int categoryId) async => 0;
+  @override
+  Future<void> deleteCategory(int id) async {}
 }
 
 class FakeUnitsRepository implements UnitsRepository {
@@ -62,6 +64,8 @@ class FakeUnitsRepository implements UnitsRepository {
   Future<void> updateUnit(UnitOfMeasurement unit) async {}
   @override
   Future<int> getProductsCountByUnit(int unitId) async => 0;
+  @override
+  Future<void> deleteUnit(int id) async {}
 }
 
 class FakeProductsRepository implements ProductsRepository {
@@ -134,6 +138,8 @@ class FakeProductsRepository implements ProductsRepository {
   Future<void> setProductActive(int id, bool isActive) async {}
   @override
   Future<int> getLowStockCount() async => 0;
+  @override
+  Future<void> deleteProduct(int id) async {}
 }
 
 class FakeSuppliersRepository implements SuppliersRepository {
@@ -161,6 +167,8 @@ class FakeSuppliersRepository implements SuppliersRepository {
   Future<int> getTotalSuppliersDebt() async => 0;
   @override
   Future<int> getActiveSuppliersCount() async => suppliers.length;
+  @override
+  Future<void> deleteSupplier(int id) async {}
 }
 
 class FakePurchasesRepository implements PurchasesRepository {
@@ -174,6 +182,8 @@ class FakePurchasesRepository implements PurchasesRepository {
   }) async {
     return invoice;
   }
+  @override
+  Future<void> deletePurchaseInvoice(int id) async {}
 
   @override
   Future<List<PurchaseInvoice>> getInvoices({

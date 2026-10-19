@@ -289,4 +289,66 @@ class ProductsRepositoryImpl implements ProductsRepository {
       throw DatabaseException('فشل حساب المنتجات منخفضة المخزون', e);
     }
   }
+
+  @override
+  Future<void> deleteProduct(int id) async {
+    try {
+      final db = await _databaseService.database;
+      await db.transaction((txn) async {
+        // 1. التأكد من وجود المنتج
+        final prodRows = await txn.query(
+          DatabaseConstants.tableProducts,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (prodRows.isEmpty) {
+          throw const NotFoundException('المنتج المراد حذفه غير موجود');
+        }
+        final prodName = prodRows.first['name'] as String? ?? '';
+
+        // 2. التحقق من وجود فواتير مبيعات
+        final salesItems = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tableSalesInvoiceItems} WHERE product_id = ?',
+          [id],
+        );
+        final salesCount = (salesItems.first['cnt'] as num?)?.toInt() ?? 0;
+        if (salesCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف المنتج "$prodName" لوجود ($salesCount) حركات مبيعات مرتبطة به حفاظاً على السجلات المالية. يمكنك تعطيل المنتج بدلاً من ذلك.',
+          );
+        }
+
+        // 3. التحقق من وجود فواتير مشتريات
+        final purchaseItems = await txn.rawQuery(
+          'SELECT COUNT(*) as cnt FROM ${DatabaseConstants.tablePurchaseInvoiceItems} WHERE product_id = ?',
+          [id],
+        );
+        final purchaseCount = (purchaseItems.first['cnt'] as num?)?.toInt() ?? 0;
+        if (purchaseCount > 0) {
+          throw ValidationException(
+            'لا يمكن حذف المنتج "$prodName" لوجود ($purchaseCount) حركات مشتريات مرتبطة به حفاظاً على السجلات المالية. يمكنك تعطيل المنتج بدلاً من ذلك.',
+          );
+        }
+
+        // 4. حذف حركات المخزون المرتبطة (مثل الرصيد الافتتاحي أو التسويات)
+        await txn.delete(
+          DatabaseConstants.tableStockMovements,
+          where: 'product_id = ?',
+          whereArgs: [id],
+        );
+
+        // 5. حذف المنتج نفسه
+        await txn.delete(
+          DatabaseConstants.tableProducts,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifyInventoryChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف المنتج: $e', e);
+    }
+  }
 }

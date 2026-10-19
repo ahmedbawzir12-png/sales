@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/error_handler.dart';
 import 'package:sales/core/presentation/theme/app_colors.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
+import 'package:sales/core/presentation/widgets/confirm_dialog.dart';
 import '../../data/repositories/categories_repository_impl.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/categories_repository.dart';
@@ -170,12 +172,31 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     } catch (e, stackTrace) {
       final failure = ErrorHandler.handle(e, stackTrace);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(failure.userFriendlyMessage),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppToast.showError(context, failure.userFriendlyMessage);
+      }
+    }
+  }
+
+  Future<void> _deleteCategory(Category category) async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'حذف التصنيف',
+      message: 'هل أنت متأكد من حذف التصنيف "${category.name}" نهائياً؟\n\nتنبيه: لن يُسمح بالحذف إذا كانت هناك منتجات مرتبطة بهذا التصنيف.',
+      confirmLabel: 'تأكيد الحذف',
+      isDestructive: true,
+    );
+    if (confirmed == true) {
+      try {
+        await _repository.deleteCategory(category.id);
+        _loadCategories();
+        if (mounted) {
+          AppToast.showDelete(context, 'تم حذف التصنيف "${category.name}" بنجاح');
+        }
+      } catch (e, stackTrace) {
+        final failure = ErrorHandler.handle(e, stackTrace);
+        if (mounted) {
+          AppToast.showError(context, failure.userFriendlyMessage);
+        }
       }
     }
   }
@@ -193,6 +214,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.startFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'categories_fab',
         onPressed: () => _showAddEditDialog(),
@@ -218,7 +240,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               : _categories.isEmpty
                   ? const Center(child: Text('لا توجد تصنيفات مضافة حتى الآن'))
                   : ListView.separated(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                       itemCount: _categories.length,
                       separatorBuilder: (context, index) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
@@ -261,6 +283,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                     size: 28,
                                   ),
                                   onPressed: () => _toggleCategory(cat),
+                                ),
+                                IconButton(
+                                  tooltip: 'حذف التصنيف نهائياً',
+                                  icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+                                  onPressed: () => _deleteCategory(cat),
                                 ),
                               ],
                             ),

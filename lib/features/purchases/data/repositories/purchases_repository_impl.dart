@@ -639,4 +639,132 @@ class PurchasesRepositoryImpl implements PurchasesRepository {
       throw DatabaseException('فشل إلغاء فاتورة الشراء', e);
     }
   }
+
+  @override
+  Future<void> deletePurchaseInvoice(int invoiceId) async {
+    try {
+      final db = await _databaseService.database;
+
+      await db.transaction((txn) async {
+        final invoiceRows = await txn.query(
+          DatabaseConstants.tablePurchaseInvoices,
+          where: 'id = ?',
+          whereArgs: [invoiceId],
+          limit: 1,
+        );
+
+        if (invoiceRows.isEmpty) {
+          throw const NotFoundException('فاتورة الشراء المراد حذفها غير موجودة');
+        }
+
+        final invoiceData = invoiceRows.first;
+        final currentStatus = invoiceData['status'] as String;
+        final invoiceNumber = invoiceData['invoice_number'] as String;
+        final supplierId = invoiceData['supplier_id'] as int;
+        final remainingAmount = (invoiceData['remaining_amount'] as num).toInt();
+
+        final itemRows = await txn.query(
+          DatabaseConstants.tablePurchaseInvoiceItems,
+          where: 'purchase_invoice_id = ?',
+          whereArgs: [invoiceId],
+        );
+
+        if (currentStatus != PurchaseInvoiceStatus.cancelled.name) {
+          for (final item in itemRows) {
+            final productId = item['product_id'] as int;
+            final double returnQty = (item['quantity'] as num).toDouble();
+
+            final productRows = await txn.query(
+              DatabaseConstants.tableProducts,
+              columns: ['id', 'name', 'current_stock'],
+              where: 'id = ?',
+              whereArgs: [productId],
+              limit: 1,
+            );
+
+            if (productRows.isNotEmpty) {
+              final p = productRows.first;
+              final double currentStock = (p['current_stock'] as num).toDouble();
+              final String productName = p['name'] as String;
+
+              if (currentStock < returnQty) {
+                throw ValidationException(
+                  'لا يمكن حذف الفاتورة: رصيد المخزون الحالي للمنتج "$productName" هو ($currentStock) والكمية المراد خصمها هي ($returnQty). قد تكون بعض الكميات قد تم بيعها.',
+                );
+              }
+            }
+          }
+
+          for (final item in itemRows) {
+            final productId = item['product_id'] as int;
+            final double returnQty = (item['quantity'] as num).toDouble();
+
+            await _stockMovementsRepository.recordMovementWithExecutor(
+              txn,
+              productId: productId,
+              type: StockMovementType.purchaseReturn,
+              quantity: returnQty,
+              reason: 'حذف فاتورة الشراء رقم $invoiceNumber',
+              reference: invoiceNumber,
+              notes: 'إرجاع تلقائي إثر حذف الفاتورة',
+            );
+          }
+
+          final now = DateTime.now().toIso8601String();
+
+          if (remainingAmount > 0) {
+            await _supplierLedgerRepository.recordEntryWithExecutor(
+              txn,
+              SupplierLedgerEntry(
+                id: 0,
+                supplierId: supplierId,
+                transactionType: SupplierLedgerTransactionType.cancellation,
+                amount: remainingAmount,
+                transactionDate: DateTime.parse(now),
+                referenceType: 'purchase_invoice',
+                referenceId: invoiceId,
+                notes: 'إلغاء أثر الدين لفاتورة الشراء المحذوفة رقم $invoiceNumber',
+                createdAt: DateTime.parse(now),
+              ),
+            );
+
+            final currentBalance = await _supplierLedgerRepository.getSupplierBalanceWithExecutor(txn, supplierId);
+            await txn.update(
+              DatabaseConstants.tableSuppliers,
+              {'current_balance': currentBalance, 'updated_at': now},
+              where: 'id = ?',
+              whereArgs: [supplierId],
+            );
+          }
+
+          // حذف حركات الصندوق التابعة لفاتورة الشراء مباشرة
+          await txn.delete(
+            DatabaseConstants.tableCashTransactions,
+            where: 'reference_type = ? AND reference_id = ?',
+            whereArgs: ['purchase_invoice', invoiceId],
+          );
+        }
+
+        await txn.delete(
+          DatabaseConstants.tablePurchaseInvoiceItems,
+          where: 'purchase_invoice_id = ?',
+          whereArgs: [invoiceId],
+        );
+
+        await txn.delete(
+          DatabaseConstants.tablePurchaseInvoices,
+          where: 'id = ?',
+          whereArgs: [invoiceId],
+        );
+
+        AppDataNotifier.instance.notifyInventoryChanged();
+        AppDataNotifier.instance.notifyPurchasesChanged();
+        AppDataNotifier.instance.notifySuppliersChanged();
+        AppDataNotifier.instance.notifyCashboxChanged();
+      });
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف فاتورة الشراء: $e', e);
+    }
+  }
 }

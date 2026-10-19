@@ -21,4 +21,7 @@ abstract class ExpensesRepository {
 
   /// إضافة تصنيف مصروفات جديد
   Future<ExpenseCategory> createCategory(String name);
+
+  /// حذف مصروف تشغيلي واسترداد مبلغه إلى الصندوق تلقائياً
+  Future<void> deleteExpense(int id);
 }

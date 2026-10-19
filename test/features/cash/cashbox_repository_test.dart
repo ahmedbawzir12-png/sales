@@ -805,5 +805,39 @@ void main() {
       expect(filtered.length, equals(1));
       expect(filtered.first.amount, equals(50000));
     });
+
+    // 19. حذف حركة نقدية مباشرة (سحب أو إيداع) وتحديث رصيد الصندوق
+    test('19. حذف حركة نقدية مباشرة (سحب مالك أو إيداع) بنجاح وتحديث رصيد الصندوق', () async {
+      await cashboxRepo.setOpeningBalance(100000);
+      final deposit = await cashboxRepo.recordOtherDeposit(50000);
+      final withdrawal = await cashboxRepo.recordOwnerWithdrawal(20000);
+
+      expect(await cashboxRepo.getCashBalance(), equals(130000));
+
+      // حذف السحب (يعيد الـ 20,000 إلى الصندوق)
+      await cashboxRepo.deleteTransaction(withdrawal.id);
+      expect(await cashboxRepo.getCashBalance(), equals(150000));
+
+      // حذف الإيداع (يخصم الـ 50,000 من الصندوق)
+      await cashboxRepo.deleteTransaction(deposit.id);
+      expect(await cashboxRepo.getCashBalance(), equals(100000));
+    });
+
+    // 20. حماية الرصيد السالب عند حذف حركة إيداع
+    test('20. رفض حذف حركة إيداع إذا كان رصيد الصندوق الحالي لا يكفي لتغطية الخصم', () async {
+      await cashboxRepo.setOpeningBalance(20000);
+      final deposit = await cashboxRepo.recordOtherDeposit(80000); // الرصيد أصبح 100,000
+      await cashboxRepo.recordOwnerWithdrawal(90000); // الرصيد المتبقي أصبح 10,000 فقط
+
+      // محاولة حذف الإيداع (80,000) مع أن المتبقي 10,000 فقط!
+      expect(
+        () async => await cashboxRepo.deleteTransaction(deposit.id),
+        throwsA(isA<ValidationException>()),
+      );
+
+      // التأكد أن الرصيد لم يتأثر
+      expect(await cashboxRepo.getCashBalance(), equals(10000));
+    });
   });
 }
+

@@ -19,4 +19,7 @@ abstract class CategoriesRepository {
 
   /// عدد المنتجات المرتبطة بالتصنيف للتحقق قبل الإجراءات
   Future<int> getProductsCountByCategory(int categoryId);
+
+  /// حذف التصنيف نهائياً إذا لم يكن مرتبطاً بأي منتجات
+  Future<void> deleteCategory(int id);
 }

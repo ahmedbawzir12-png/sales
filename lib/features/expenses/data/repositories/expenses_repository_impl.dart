@@ -214,4 +214,42 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
       throw DatabaseException('فشل إنشاء تصنيف مصروف جديد', e);
     }
   }
+
+  @override
+  Future<void> deleteExpense(int id) async {
+    try {
+      final db = await _dbService.database;
+
+      await db.transaction((txn) async {
+        final rows = await txn.query(
+          DatabaseConstants.tableExpenses,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        if (rows.isEmpty) {
+          throw const NotFoundException('المصروف المراد حذفه غير موجود');
+        }
+
+        // حذف حركة الصندوق التابعة للمصروف مباشرة
+        await txn.delete(
+          DatabaseConstants.tableCashTransactions,
+          where: 'reference_type = ? AND reference_id = ?',
+          whereArgs: ['expense', id],
+        );
+
+        await txn.delete(
+          DatabaseConstants.tableExpenses,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      });
+
+      AppDataNotifier.instance.notifyExpensesChanged();
+      AppDataNotifier.instance.notifyCashboxChanged();
+    } catch (e) {
+      if (e is AppException) rethrow;
+      throw DatabaseException('فشل حذف المصروف: $e', e);
+    }
+  }
 }

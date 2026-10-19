@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/domain/errors/exceptions.dart';
 import '../../../../core/presentation/theme/app_colors.dart';
+import '../../../../core/presentation/utils/app_toast.dart';
 import '../../../../core/presentation/utils/formatters.dart';
 import '../../../cash/domain/repositories/cashbox_repository.dart';
 import '../../domain/entities/expense.dart';
@@ -106,9 +107,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
       }
     } on AppException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: AppColors.error),
-        );
+        AppToast.showError(context, e.message);
       }
     }
   }

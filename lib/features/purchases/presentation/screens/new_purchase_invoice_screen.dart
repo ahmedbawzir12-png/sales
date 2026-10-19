@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sales/core/domain/errors/exceptions.dart';
+import 'package:sales/core/presentation/utils/app_toast.dart';
 import 'package:sales/core/presentation/utils/formatters.dart';
 import 'package:sales/features/products/data/repositories/categories_repository_impl.dart';
 import 'package:sales/features/products/data/repositories/products_repository_impl.dart';
@@ -180,9 +181,7 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
 
   void _removeItemRow(int index) {
     if (_itemDrafts.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يجب أن تحتوي الفاتورة على صنف واحد على الأقل')),
-      );
+      AppToast.showWarning(context, 'يجب أن تحتوي الفاتورة على صنف واحد على الأقل');
       return;
     }
     setState(() {
@@ -273,12 +272,9 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
         _recalculatePaidIfCash();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تمت إضافة المنتج "${createdProduct.name}" بنجاح وتحديده في الفاتورة'),
-          backgroundColor: Colors.teal.shade700,
-          duration: const Duration(seconds: 3),
-        ),
+      AppToast.showSave(
+        context,
+        'تمت إضافة المنتج "${createdProduct.name}" بنجاح وتحديده في الفاتورة',
       );
     }
   }
@@ -381,11 +377,9 @@ class _NewPurchaseInvoiceScreenState extends State<NewPurchaseInvoiceScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('تم حفظ فاتورة الشراء (${savedInvoice.invoiceNumber}) بنجاح وتحديث المخزون'),
-            backgroundColor: Colors.green,
-          ),
+        AppToast.showSave(
+          context,
+          'تم حفظ فاتورة الشراء (${savedInvoice.invoiceNumber}) بنجاح وتحديث المخزون',
         );
         Navigator.of(context).pop(savedInvoice);
       }
