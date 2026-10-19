@@ -356,14 +356,15 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                               children: [
                                                 Flexible(
                                                   child: Text(
-                                                    invoice.invoiceNumber,
+                                                    invoice.customerName ?? 'زبون عام',
                                                     style: TextStyle(
                                                       fontSize: 15,
                                                       fontWeight: FontWeight.bold,
                                                       decoration: isCancelled ? TextDecoration.lineThrough : null,
                                                       color: isCancelled ? AppColors.textMuted : AppColors.textPrimary,
                                                     ),
-                                                    overflow: TextOverflow.ellipsis,
+                                                    maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                                 const SizedBox(width: 8),
@@ -390,7 +391,7 @@ class _SalesListScreenState extends State<SalesListScreen> {
                                             ),
                                             const SizedBox(height: 6),
                                             Text(
-                                              '${invoice.customerName ?? "زبون عام"} • ${AppFormatters.date(invoice.invoiceDate)}',
+                                              invoice.invoiceNumber,
                                               style: TextStyle(
                                                 fontSize: 13,
                                                 color: isCancelled ? AppColors.textMuted : AppColors.textSecondary,

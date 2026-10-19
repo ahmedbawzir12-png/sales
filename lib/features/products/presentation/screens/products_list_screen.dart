@@ -391,7 +391,7 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
     // تم استبدال الـ Card الثابت بـ AppCard المتجاوب والسلس (Fluid)
     // مسافة داخلية مريحة 16px وحواف ناعمة 14px بدون أي أبعاد ثابتة
     return AppCard(
-      padding: const EdgeInsets.all(16), // مسافة داخلية متساوية ومريحة تمنع اختناق المحتوى
+      padding: const EdgeInsets.all(12),
       onTap: () async {
         await Navigator.of(context).push(
           MaterialPageRoute(
@@ -404,44 +404,63 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // تم إضافة Expanded لمنع تجاوز النصوص على أي قياس شاشة
+              // تفاصيل المنتج الرئيسية
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      product.name,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: product.isActive ? AppColors.textPrimary : AppColors.textMuted,
-                        decoration: product.isActive ? null : TextDecoration.lineThrough,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    Row(
                       children: [
+                        Flexible(
+                          child: Text(
+                            product.name,
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.bold,
+                              color: product.isActive ? AppColors.textPrimary : AppColors.textMuted,
+                              decoration: product.isActive ? null : TextDecoration.lineThrough,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceHighlight,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Text(
                             product.categoryName ?? 'تصنيف',
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          'سعر البيع: ',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.textMuted,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         Text(
-                          'سعر البيع: ${AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency)}',
+                          AppFormatters.currency(product.salePrice, currency: AppConstants.defaultCurrency),
                           style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.primary,
                           ),
                         ),
@@ -452,9 +471,9 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
               ),
               const SizedBox(width: 12),
 
-              // مؤشر حالة المخزون — حاوية متكيفة ديناميكياً بحسب النص والأرقام
+              // مؤشر حالة المخزون — مدمج وأنيق
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: isOutOfStock
                       ? AppColors.errorContainer
@@ -464,13 +483,14 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       '${product.currentStock} ${product.unitSymbol ?? ""}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                         color: isOutOfStock
                             ? AppColors.error
                             : isLow
@@ -478,7 +498,6 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                                 : AppColors.success,
                       ),
                     ),
-                    const SizedBox(height: 2),
                     Text(
                       isOutOfStock
                           ? 'نفد'
@@ -500,20 +519,20 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
           const SizedBox(height: 8),
+          const Divider(height: 1),
+          const SizedBox(height: 4),
 
-          // شريط الإجراءات السريعة — أزرار بمساحة ضغط مريحة (>=48px)
+          // شريط الإجراءات السريعة
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               TextButton.icon(
-                icon: const Icon(Icons.tune_outlined, size: 18),
-                label: const Text('تسوية جرد', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                icon: const Icon(Icons.tune_outlined, size: 16),
+                label: const Text('تسوية جرد', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
                 style: TextButton.styleFrom(
-                  minimumSize: const Size(48, 48), // مساحة ضغط لا تقل عن 48px
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  minimumSize: const Size(36, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 ),
                 onPressed: () async {
                   final result = await Navigator.of(context).push(
@@ -529,8 +548,9 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
               const SizedBox(width: 4),
               IconButton(
                 tooltip: 'تعديل بيانات المنتج',
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // مساحة ضغط لا تقل عن 48px
+                icon: const Icon(Icons.edit_outlined, size: 19),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 onPressed: () async {
                   final result = await Navigator.of(context).push(
                     MaterialPageRoute(
@@ -542,26 +562,28 @@ class _ProductsListScreenState extends State<ProductsListScreen> {
                   }
                 },
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               IconButton(
                 tooltip: product.isActive ? 'تعطيل المنتج' : 'تفعيل المنتج',
                 icon: Icon(
                   product.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
-                  size: 20,
+                  size: 19,
                   color: product.isActive ? AppColors.textMuted : AppColors.success,
                 ),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48), // مساحة ضغط لا تقل عن 48px
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 onPressed: () => _toggleProductStatus(product),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 2),
               IconButton(
                 tooltip: 'حذف المنتج نهائياً',
                 icon: const Icon(
                   Icons.delete_outline,
-                  size: 20,
+                  size: 19,
                   color: AppColors.error,
                 ),
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                padding: const EdgeInsets.all(6),
                 onPressed: () => _deleteProduct(product),
               ),
             ],
